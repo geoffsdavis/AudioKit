@@ -76,7 +76,7 @@ typedef struct
     self.floatConverter = nil;
     pthread_mutex_destroy(&_lock);
     [EZAudioUtilities freeFloatBuffers:self.floatData numberOfChannels:self.clientFormat.mChannelsPerFrame];
-    [EZAudioUtilities checkResult:ExtAudioFileDispose(self.info->extAudioFileRef) operation:"Failed to dispose of ext audio file"];
+    //[EZAudioUtilities checkResult:ExtAudioFileDispose(self.info->extAudioFileRef) operation:"Failed to dispose of ext audio file"];
     free(self.info);
 }
 
@@ -243,11 +243,15 @@ typedef struct
     NSAssert(self.info->sourceURL, @"EZAudioFile cannot be created without a source url!");
     
     //
+    // NOTE: This check is purposely overridden due to its inability to work with Music Library songs
+    // (i.e. file URLs that start with 'ipod-library://')  - Geoff
+    //
     // Determine if the file actually exists
     //
     CFURLRef url = self.info->sourceURL;
-    NSURL *fileURL = (__bridge NSURL *)(url);
-    BOOL fileExists = [[NSFileManager defaultManager] fileExistsAtPath:fileURL.path];
+    //NSURL *fileURL = (__bridge NSURL *)(url);
+    //BOOL fileExists = [[NSFileManager defaultManager] fileExistsAtPath:fileURL.path];
+    BOOL fileExists = YES;
     
     //
     // Create an ExtAudioFileRef for the file handle
