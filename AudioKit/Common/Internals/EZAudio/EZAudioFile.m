@@ -524,7 +524,7 @@ typedef struct
     dispatch_async(self.waveformQueue, ^{
         EZAudioFloatData *waveformData = [weakSelf getWaveformDataWithNumberOfPoints:numberOfPoints];
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(waveformData.buffers, waveformData.bufferSize);
+            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels);
         });
     });
 }
