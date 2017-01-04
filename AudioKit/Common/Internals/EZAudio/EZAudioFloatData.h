@@ -43,6 +43,8 @@
 @property (nonatomic, assign, readonly) float **buffers;
 @property (nonatomic, assign, readonly) UInt32 bufferSize;
 
+@property (nonatomic, assign) float maxAmplitude;
+
 //------------------------------------------------------------------------------
 
 - (float *)bufferForChannel:(int)channel;

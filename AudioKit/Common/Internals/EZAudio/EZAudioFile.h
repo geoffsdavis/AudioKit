@@ -355,6 +355,14 @@ typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int len
 #pragma mark - Helpers
 //------------------------------------------------------------------------------
 
+///**
+// Synchronously pulls the maximum amplitude data point from the file
+// @return A EZAudioFloatData instance containing the audio data for all channels of the audio.
+// */
+//- (float)getMaxAmplitude;
+//
+////------------------------------------------------------------------------------
+
 /**
  Synchronously pulls the waveform amplitude data into a float array for the receiver. This returns a waveform with a default resolution of 1024, meaning there are 1024 data points to plot the waveform.
  @param numberOfPoints A UInt32 representing the number of data points you need. The higher the number of points the more detailed the waveform will be.
@@ -387,6 +395,20 @@ typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int len
  @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides a `EZAudioFloatData` instance containing the waveform data for all audio channels.
  */
 - (void)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                               completion:(EZAudioWaveformDataCompletionBlock)completion;
+
+//------------------------------------------------------------------------------
+
+/**
+ Asynchronously pulls the waveform amplitude data into a float array for the receiver, but only for a subset of the data
+ @param numberOfPoints A UInt32 representing the number of data points you need. The higher the number of points the more detailed the waveform will be.
+ @param start A CGFloat representing the fraction of the data where the subset starts - between 0.0 and 1.0
+ @param end A CGFloat representing the fraction of the data where the subset ends - between 0.0 and 1.0
+ @param completion A EZAudioWaveformDataCompletionBlock that executes when the waveform data has been extracted. Provides a `EZAudioFloatData` instance containing the waveform data for all audio channels.
+ */
+- (void)getPartialWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                                       fromStart:(float)startFraction
+                                           toEnd:(float)endFraction
                                completion:(EZAudioWaveformDataCompletionBlock)completion;
 
 //------------------------------------------------------------------------------

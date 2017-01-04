@@ -402,6 +402,95 @@ typedef struct
 
 //------------------------------------------------------------------------------
 
+//- (float)getMaxAmplitude {
+//    float maxAmplitude = 0.0;
+//    if (pthread_mutex_trylock(&_lock) == 0)
+//    {
+//        // store current frame
+//        SInt64 currentFrame = self.frameIndex;
+//        BOOL interleaved = [EZAudioUtilities isInterleaved:self.clientFormat];
+//        UInt32 channels = self.clientFormat.mChannelsPerFrame;
+//        if (channels == 0)
+//        {
+//            // prevent division by zero
+//            pthread_mutex_unlock(&_lock);
+//            return 0.0;
+//        }
+//        
+//        // seek to 0
+//        [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
+//                                                       0)
+//                            operation:"Failed to seek frame position within audio file"];
+//        
+//        SInt64 framesPerChannel = self.totalClientFrames / channels;
+//        
+//        // buffer for ALL the frames!!!
+//        AudioBufferList *audioBufferList = [EZAudioUtilities audioBufferListWithNumberOfFrames:(UInt32)self.totalClientFrames
+//                                                                              numberOfChannels:self.info->clientFormat.mChannelsPerFrame
+//                                                                                   interleaved:interleaved];
+//        
+//        UInt32 bufferSize = (UInt32) self.totalClientFrames;
+//        
+//        CFTimeInterval readStartTime = CACurrentMediaTime();
+//        
+//        
+//        // read ALL the frames!!!
+//        [EZAudioUtilities checkResult:ExtAudioFileRead(self.info->extAudioFileRef,
+//                                                       &bufferSize,
+//                                                       audioBufferList)
+//                            operation:"Failed to read audio data from file waveform"];
+//        
+//        NSLog(@"# read ALL frames time: %f", CACurrentMediaTime() - readStartTime);
+//
+//        
+//        
+//        if (interleaved)
+//        {
+//            float *buffer = (float *)audioBufferList->mBuffers[0].mData;
+//            for (int channel = 0; channel < channels; channel++)
+//            {
+//                float channelData[framesPerChannel];
+//                for (int frame = 0; frame < framesPerChannel; frame+=100)
+//                {
+//
+//                    channelData[frame] = buffer[frame * channels + channel];
+//                    maxAmplitude = MAX(channelData[frame], maxAmplitude);
+//
+//                }
+////                float rms = [EZAudioUtilities RMS:channelData length:(UInt32)framesPerChannel];
+////                data[channel][i] = rms;
+//            }
+//        }
+//        else
+//        {
+//            for (int channel = 0; channel < channels; channel++)
+//            {
+//                float *channelData = audioBufferList->mBuffers[channel].mData;
+//                for(int i = 0; i < bufferSize; i++)
+//                    maxAmplitude = MAX(channelData[i], maxAmplitude);
+//                
+//                //float rms = [EZAudioUtilities RMS:channelData length:bufferSize];
+//                //data[channel][i] = rms;
+//            }
+//        }
+//        
+//        
+//        // clean up
+//        [EZAudioUtilities freeBufferList:audioBufferList];
+//        
+//        // seek back to previous position
+//        [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
+//                                                       currentFrame)
+//                            operation:"Failed to seek frame position within audio file"];
+//        
+//        pthread_mutex_unlock(&_lock);
+//        
+//    }
+//    return maxAmplitude;
+//}
+
+//------------------------------------------------------------------------------
+
 - (EZAudioFloatData *)getWaveformData
 {
     return [self getWaveformDataWithNumberOfPoints:EZAudioFileWaveformDefaultResolution];
@@ -412,6 +501,8 @@ typedef struct
 - (EZAudioFloatData *)getWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
 {
     EZAudioFloatData *waveformData;
+    float maxAmplitude = 0.0;
+
     if (pthread_mutex_trylock(&_lock) == 0)
     {
         // store current frame
@@ -437,6 +528,111 @@ typedef struct
         
         // calculate the required number of frames per buffer
         SInt64 framesPerBuffer = ((SInt64) self.totalClientFrames / numberOfPoints);
+        SInt64 framesPerChannel = framesPerBuffer / channels;
+        
+        // allocate an audio buffer list
+        AudioBufferList *audioBufferList = [EZAudioUtilities audioBufferListWithNumberOfFrames:(UInt32)framesPerBuffer
+                                                                              numberOfChannels:self.info->clientFormat.mChannelsPerFrame
+                                                                                   interleaved:interleaved];
+        
+        // read through file and calculate rms at each point
+        for (SInt64 i = 0; i < numberOfPoints; i++)
+        {
+            UInt32 bufferSize = (UInt32) framesPerBuffer;
+            [EZAudioUtilities checkResult:ExtAudioFileRead(self.info->extAudioFileRef,
+                                                           &bufferSize,
+                                                           audioBufferList)
+                                operation:"Failed to read audio data from file waveform"];
+            if (interleaved)
+            {
+                float *buffer = (float *)audioBufferList->mBuffers[0].mData;
+                for (int channel = 0; channel < channels; channel++)
+                {
+                    float channelData[framesPerChannel];
+                    for (int frame = 0; frame < framesPerChannel; frame++)
+                    {
+                        channelData[frame] = buffer[frame * channels + channel];
+                        maxAmplitude = MAX(channelData[frame], maxAmplitude);
+                    }
+                    float rms = [EZAudioUtilities RMS:channelData length:(UInt32)framesPerChannel];
+                    data[channel][i] = rms;
+                }
+            }
+            else
+            {
+                for (int channel = 0; channel < channels; channel++)
+                {
+                    float *channelData = audioBufferList->mBuffers[channel].mData;
+                    for(int i = 0; i < bufferSize; i++)
+                        maxAmplitude = MAX(channelData[i], maxAmplitude);
+                    float rms = [EZAudioUtilities RMS:channelData length:bufferSize];
+                    data[channel][i] = rms;
+                }
+            }
+        }
+        
+        // clean up
+        [EZAudioUtilities freeBufferList:audioBufferList];
+        
+        // seek back to previous position
+        [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
+                                                       currentFrame)
+                            operation:"Failed to seek frame position within audio file"];
+        
+        pthread_mutex_unlock(&_lock);
+        
+        waveformData = [EZAudioFloatData dataWithNumberOfChannels:channels
+                                                          buffers:(float **)data
+                                                       bufferSize:numberOfPoints];
+        waveformData.maxAmplitude = maxAmplitude;
+        
+        // cleanup
+        for (int i = 0; i < channels; i++)
+        {
+            free(data[i]);
+        }
+        free(data);
+    }
+    return waveformData;
+}
+
+
+//------------------------------------------------------------------------------
+
+- (EZAudioFloatData *)getPartialWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                                       fromStart:(float)startFraction
+                                           toEnd:(float)endFraction
+{
+    EZAudioFloatData *waveformData;
+    if (pthread_mutex_trylock(&_lock) == 0)
+    {
+        UInt32 startFrame = self.totalClientFrames  * startFraction;
+        UInt32 endFrame = self.totalClientFrames  * endFraction;
+        UInt32 partialClientFrames = endFrame - startFrame;
+        
+        // store current frame
+        SInt64 currentFrame = self.frameIndex;
+        BOOL interleaved = [EZAudioUtilities isInterleaved:self.clientFormat];
+        UInt32 channels = self.clientFormat.mChannelsPerFrame;
+        if (channels == 0)
+        {
+            // prevent division by zero
+            pthread_mutex_unlock(&_lock);
+            return nil;
+        }
+        float **data = (float **)malloc( sizeof(float*) * channels );
+        for (int i = 0; i < channels; i++)
+        {
+            data[i] = (float *)malloc( sizeof(float) * numberOfPoints );
+        }
+        
+        // seek to 0
+        [EZAudioUtilities checkResult:ExtAudioFileSeek(self.info->extAudioFileRef,
+                                                       startFrame)
+                            operation:"Failed to seek frame position within audio file"];
+        
+        // calculate the required number of frames per buffer
+        SInt64 framesPerBuffer = ((SInt64) partialClientFrames / numberOfPoints);
         SInt64 framesPerChannel = framesPerBuffer / channels;
         
         // allocate an audio buffer list
@@ -499,6 +695,7 @@ typedef struct
         free(data);
     }
     return waveformData;
+    
 }
 
 //------------------------------------------------------------------------------
@@ -523,6 +720,28 @@ typedef struct
     __weak EZAudioFile *weakSelf = self;
     dispatch_async(self.waveformQueue, ^{
         EZAudioFloatData *waveformData = [weakSelf getWaveformDataWithNumberOfPoints:numberOfPoints];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels);
+        });
+    });
+}
+
+//------------------------------------------------------------------------------
+
+- (void)getPartialWaveformDataWithNumberOfPoints:(UInt32)numberOfPoints
+                                       fromStart:(float)startFraction
+                                           toEnd:(float)endFraction
+                                      completion:(EZAudioWaveformDataCompletionBlock)completion
+{
+    if (!completion)
+    {
+        return;
+    }
+    
+    // async get waveform data
+    __weak EZAudioFile *weakSelf = self;
+    dispatch_async(self.waveformQueue, ^{
+        EZAudioFloatData *waveformData = [weakSelf getPartialWaveformDataWithNumberOfPoints:numberOfPoints fromStart:startFraction toEnd:endFraction];
         dispatch_async(dispatch_get_main_queue(), ^{
             completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels);
         });
