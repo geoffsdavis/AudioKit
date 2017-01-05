@@ -40,7 +40,7 @@
  @param waveformData An array of float arrays, each representing a channel of audio data from the file
  @param length       An int representing the length of each channel of float audio data
  */
-typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int length, int numChannels);
+typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int length, int numChannels, float maxAmplitude);
 
 //------------------------------------------------------------------------------
 #pragma mark - EZAudioFileDelegate

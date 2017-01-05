@@ -721,7 +721,7 @@ typedef struct
     dispatch_async(self.waveformQueue, ^{
         EZAudioFloatData *waveformData = [weakSelf getWaveformDataWithNumberOfPoints:numberOfPoints];
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels);
+            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels, waveformData.maxAmplitude);
         });
     });
 }
@@ -743,7 +743,7 @@ typedef struct
     dispatch_async(self.waveformQueue, ^{
         EZAudioFloatData *waveformData = [weakSelf getPartialWaveformDataWithNumberOfPoints:numberOfPoints fromStart:startFraction toEnd:endFraction];
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels);
+            completion(waveformData.buffers, waveformData.bufferSize, waveformData.numberOfChannels, waveformData.maxAmplitude);
         });
     });
 }
