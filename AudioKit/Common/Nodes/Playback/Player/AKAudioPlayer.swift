@@ -9,6 +9,33 @@
 import Foundation
 import AVFoundation
 
+
+
+extension AVAudioPCMBuffer {
+    
+    
+    open func subBuffer(startFrame: UInt32, endFrame: UInt32) -> AVAudioPCMBuffer {
+        let subBufferFrameCount = endFrame - startFrame
+        let subBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: subBufferFrameCount )
+        guard let floatChannelData = floatChannelData, let subFloatChannelData = subBuffer.floatChannelData else {
+            return subBuffer
+        }
+        let startFrameInt: Int = Int(startFrame)
+        let subBufferFrameCountInt: Int = Int(subBufferFrameCount)
+        let channelCountInt: Int = Int(format.channelCount)
+        for i in Swift.stride(from: startFrameInt, to: subBufferFrameCountInt, by: channelCountInt) {
+            subFloatChannelData.pointee[i-startFrameInt] = floatChannelData.pointee[i]
+        }
+        return subBuffer
+    }
+    
+}
+
+
+
+
+
+
 /// Not so simple audio playback class
 open class AKAudioPlayer: AKNode, AKToggleable {
     
@@ -17,6 +44,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     fileprivate var internalAudioFile: AKAudioFile
     fileprivate var internalPlayer = AVAudioPlayerNode()
     fileprivate var audioFileBuffer: AVAudioPCMBuffer?
+    fileprivate var playBuffer: AVAudioPCMBuffer?
     fileprivate var totalFrameCount: UInt32 = 0
     fileprivate var startingFrame: UInt32 = 0
     fileprivate var endingFrame: UInt32 = 0
@@ -134,7 +162,9 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 Swift.print("AKAudioPlayer.startTime = \(newValue), startingFrame: \(startingFrame)")
                 
                 // now update the buffer
+                print("     - will updatePCMBuffer()")
                 updatePCMBuffer()
+                print("     - dill updatePCMBuffer()")
                 //stop()
                 
                 // remember this value for ease of checking redundancy later
@@ -364,6 +394,8 @@ open class AKAudioPlayer: AKNode, AKToggleable {
         }
     }
     
+    //open func playAt(
+    
     // MARK: - Private Methods
     
     fileprivate func initialize() {
@@ -416,8 +448,10 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 pcmFormat: internalAudioFile.processingFormat,
                 frameCapacity: AVAudioFrameCount(totalFrameCount) )
             do {
+                print("       -  will try internalAudioFile")
                 try internalAudioFile.read(into: audioFileBuffer!, frameCount: framesToPlayCount)
-                
+                playBuffer = nil
+                print("       -  did try internalAudioFile")
                 // print("AKAudioPlayer.updatePCMBuffer() \(audioFileBuffer!.frameLength)")
             } catch {
                 print("ERROR AKaudioPlayer: Could not read data into buffer.")
