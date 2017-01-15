@@ -145,12 +145,13 @@ open class AKAudioPlayer: AKNode, AKToggleable {
             
         }
         set {
+            print("### set startTime: \(newValue) against \(internalStartTime)")
             //let wasPlaying = playing
             
             // since setting startTime will fill the buffer again, we only want to do this if the
             // data really needs to be updated
             if newValue == internalStartTime {
-                //print("startTime is the same, so returning: \(newValue)")
+                print("    startTime is the same, so returning: \(newValue)")
                 return
                 
             } else if newValue > Double(endingFrame) / internalAudioFile.sampleRate && endingFrame > 0 {
@@ -161,10 +162,14 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 
                 Swift.print("AKAudioPlayer.startTime = \(newValue), startingFrame: \(startingFrame)")
                 
+                scheduleBuffer()
+                
                 // now update the buffer
-                print("     - will updatePCMBuffer()")
-                updatePCMBuffer()
-                print("     - dill updatePCMBuffer()")
+//                print("     - will updatePCMBuffer()")
+//                updatePCMBuffer()
+//                print("     - dill updatePCMBuffer()")
+                
+                
                 //stop()
                 
                 // remember this value for ease of checking redundancy later
@@ -186,6 +191,8 @@ open class AKAudioPlayer: AKNode, AKToggleable {
             
         }
         set {
+            print("### set endTime: \(newValue)")
+
             //let wasPlaying = playing
             
             // since setting startTime will fill the buffer again, we only want to do this if the
@@ -206,7 +213,9 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 Swift.print("AKAudioPlayer.endTime = \(newValue), endingFrame: \(endingFrame)")
                 
                 // now update the buffer
-                updatePCMBuffer()
+                //updatePCMBuffer()
+                
+                
                 //stop()
                 
                 // remember this value for ease of checking redundancy later
@@ -279,8 +288,10 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     /// Start playback
     open func start() {
         
+        print("###### start()")
+        
         if !playing {
-            if audioFileBuffer != nil {
+            if internalAudioFile.length > 0 {
                 // schedule it at some point in the future / or immediately if 0
                 scheduleBuffer( secondsToAVAudioTime(scheduledTime) )
                 
@@ -378,6 +389,8 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     ///         start concurrently, or to simply schedule the start time.
     ///
     open func play(from time: Double, to endTime: Double = 0, when scheduledTime: Double = 0) {
+    
+        print("######### play() from: \(time) to: \(endTime)")
         
         if endTime > 0 {
             self.endTime = endTime
@@ -413,7 +426,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
         //        }
         
         if internalAudioFile.length > 0 {
-            updatePCMBuffer()
+            //updatePCMBuffer()
             
             // Setting this here doesn't make sense to me, if you pre-schedule the
             // buffer it's not possible to schedule it in the future
@@ -430,14 +443,19 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     }
     
     fileprivate func scheduleBuffer(_ atTime: AVAudioTime? = nil) {
-        if audioFileBuffer != nil {
+        //if audioFileBuffer != nil {
             //internalPlayer.scheduleBuffer(audioFileBuffer!, completionHandler: internalCompletionHandler)
-            internalPlayer.scheduleBuffer(audioFileBuffer!, at: atTime, options: .interrupts, completionHandler: internalCompletionHandler)
-            
-            if atTime != nil {
+            //internalPlayer.scheduleBuffer(audioFileBuffer!, at: atTime, options: .interrupts, completionHandler: internalCompletionHandler)
+        
+            framesToPlayCount = endingFrame - startingFrame
+        
+            print("     ##### trying to schedule segment")
+            internalPlayer.scheduleSegment(internalAudioFile, startingFrame: AVAudioFramePosition(startingFrame), frameCount: framesToPlayCount, at: atTime, completionHandler: internalCompletionHandler)
+        
+            //if atTime != nil {
                 internalPlayer.prepare(withFrameCount: framesToPlayCount)
-            }
-        }
+            //}
+        //}
     }
     
     fileprivate func updatePCMBuffer() {
