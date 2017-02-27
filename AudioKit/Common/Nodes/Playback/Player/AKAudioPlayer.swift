@@ -298,7 +298,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 print("AKAudioPlayer Warning: cannot play an empty buffer!...")
             }
         } else {
-            print("AKAudioPlayer Warning: already playing!...")
+            //print("AKAudioPlayer Warning: already playing!...")
         }
     }
     
@@ -315,7 +315,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 print("AKAudioPlayer Warning: cannot play an empty buffer!...")
             }
         } else {
-            print("AKAudioPlayer Warning: already playing!...")
+            //print("AKAudioPlayer Warning: already playing!...")
         }
     }
     
