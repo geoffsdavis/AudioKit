@@ -432,6 +432,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
 
         framesToPlayCount = totalFrameCount - startingFrame
 
+        pause()
         internalPlayer.stop()
         internalPlayer.reset()
         // completion handler is set to nil because there were weird threading issues with iOS 10
