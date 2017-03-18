@@ -340,10 +340,10 @@ open class AKAudioPlayer: AKNode, AKToggleable {
                 internalPlayer.pause()
             }
             else {
-                print("AKAudioPlayer Warning: already paused!...")
+                //print("AKAudioPlayer Warning: already paused!...")
             }
         } else {
-            print("AKAudioPlayer Warning: Cannot pause when not playing!...")
+            //print("AKAudioPlayer Warning: Cannot pause when not playing!...")
         }
     }
     
