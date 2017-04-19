@@ -20,8 +20,6 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     
     fileprivate var internalAudioFile: AKAudioFile
     fileprivate var internalPlayer = AVAudioPlayerNode()
-    //fileprivate var audioFileBuffer: AVAudioPCMBuffer? // the huge old PCM buffer
-    //fileprivate var playBuffer: AVAudioPCMBuffer?
     fileprivate var totalFrameCount: UInt32 = 0
     fileprivate var startingFrame: UInt32 = 0
     fileprivate var endingFrame: UInt32 = 0
@@ -126,49 +124,9 @@ open class AKAudioPlayer: AKNode, AKToggleable {
             
         }
         set {
-            //print("### set startTime: \(newValue)")
-            //let wasPlaying = playing
-            
-            // since setting startTime will fill the buffer again, we only want to do this if the
-            // data really needs to be updated
-//            if newValue == internalStartTime {
-//                print("    startTime is the same, so returning: \(newValue)")
-//                return
-//                
-//            }
-            
-            // TODO: ENFORCE THIS SOMEWHERE ELSE
-//            if newValue > Double(endingFrame) / internalAudioFile.sampleRate && endingFrame > 0 {
-//                print("ERROR: AKAudioPlayer cannot set a startTime bigger than the endTime: \(Double(endingFrame) / internalAudioFile.sampleRate) seconds")
-//                
-//            }
-//            else {
-            
-                startingFrame = UInt32(newValue * internalAudioFile.sampleRate)
-                
-                //Swift.print("    AKAudioPlayer.startTime = \(newValue), startingFrame: \(startingFrame)")
-                
-                //scheduleBuffer() // NO, DO NOT scheduleBuffer with start time!!!
-                
-                // now update the buffer
-//                print("     - will updatePCMBuffer()")
-//                updatePCMBuffer()
-//                print("     - did updatePCMBuffer()")
-                
-                
-                //stop()
-                
-                // remember this value for ease of checking redundancy later
-                internalStartTime = newValue
-            
-        
-            // } END IF for endtime-less-than-starttime check
-            
-            // RF: I don't think this is a good idea. There are many cases where you don't want it to restart on you without
-            //explicitly meaning to.
-            //            if wasPlaying {
-            //                play()
-            //            }
+            startingFrame = UInt32(newValue * internalAudioFile.sampleRate)
+            // remember this value for ease of checking redundancy later
+            internalStartTime = newValue
         }
     }
     
@@ -180,43 +138,20 @@ open class AKAudioPlayer: AKNode, AKToggleable {
             
         }
         set {
-            //print("### set endTime: \(newValue)")
 
-            //let wasPlaying = playing
-            
-            // since setting startTime will fill the buffer again, we only want to do this if the
-            // data really needs to be updated
             if newValue == internalEndTime {
-                //print("endTime is the same, so returning: \(newValue)")
                 return
-                
             }
             else if newValue == 0 {
                 endingFrame = totalFrameCount
                 
             }
-                // TODO: ENFORCE THIS SOMEWHERE ELSE
-//            else if newValue < Double(startingFrame) / internalAudioFile.sampleRate
-//                || newValue > Double(Double(totalFrameCount) / internalAudioFile.sampleRate) {
-//                print("ERROR: AKAudioPlayer cannot set an endTime more than file's duration: \(duration) seconds or less than startTime: \(Double(startingFrame) / internalAudioFile.sampleRate) seconds")
-//            }
             else {
                 endingFrame = UInt32(newValue * internalAudioFile.sampleRate)
-                
-                //Swift.print("AKAudioPlayer.endTime = \(newValue), endingFrame: \(endingFrame)")
-                
-                // now update the buffer
-                //updatePCMBuffer()
-                
-                
-                //stop()
-                
                 // remember this value for ease of checking redundancy later
                 internalEndTime = newValue
             }
-            //            if wasPlaying {
-            //                play()
-            //            }
+
         }
     }
     
@@ -451,8 +386,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
 
     }
     
-    
-    
+
     
     /// Triggered when the player reaches the end of its playing range
     fileprivate func internalCompletionHandler() {
@@ -461,7 +395,6 @@ open class AKAudioPlayer: AKNode, AKToggleable {
             if self.completionFiredCount == 2 {
                 self.completionHandler?()
             }
-
         }
     }
     
