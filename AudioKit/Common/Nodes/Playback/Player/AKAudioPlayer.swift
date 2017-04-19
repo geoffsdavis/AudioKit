@@ -29,6 +29,7 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     fileprivate var lastCurrentTime: Double = 0
     fileprivate var paused = false
     fileprivate var playing = false
+    fileprivate var completionFiredCount = 0
     fileprivate var internalStartTime: Double = 0
     fileprivate var internalEndTime: Double = 0
     
@@ -433,10 +434,16 @@ open class AKAudioPlayer: AKNode, AKToggleable {
         framesToPlayCount = totalFrameCount - startingFrame
 
         pause()
+
+        self.completionFiredCount = 0
         internalPlayer.stop()
         internalPlayer.reset()
+
         // completion handler is set to nil because there were weird threading issues with iOS 10
-        internalPlayer.scheduleSegment(internalAudioFile, startingFrame: AVAudioFramePosition(startingFrame), frameCount: framesToPlayCount, at: atTime, completionHandler: nil)
+        internalPlayer.scheduleSegment(internalAudioFile, startingFrame: AVAudioFramePosition(startingFrame), frameCount: framesToPlayCount, at: atTime, completionHandler: {
+            self.completionFiredCount += 1
+            self.internalCompletionHandler()
+        })
     
         if atTime != nil {
             internalPlayer.prepare(withFrameCount: framesToPlayCount)
@@ -445,19 +452,16 @@ open class AKAudioPlayer: AKNode, AKToggleable {
     }
     
     
+    
+    
     /// Triggered when the player reaches the end of its playing range
     fileprivate func internalCompletionHandler() {
-        print("    ### internalCompletionHandler()")
+        // PassagePlayer added this main thread dispatch
         DispatchQueue.main.async {
-            if self.playing {
-                if self.looping {
-                    self.scheduleBuffer()
-                } else {
-                    print("         ### would have stopped")
-                    self.stop()
-                    self.completionHandler?()
-                }
+            if self.completionFiredCount == 2 {
+                self.completionHandler?()
             }
+
         }
     }
     
