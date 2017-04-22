@@ -3,15 +3,14 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKPWMOscillatorBankAudioUnit_h
-#define AKPWMOscillatorBankAudioUnit_h
+#pragma once
 
-#import <AudioToolbox/AudioToolbox.h>
+#import "AKAudioUnit.h"
 
-@interface AKPWMOscillatorBankAudioUnit : AUAudioUnit
+@interface AKPWMOscillatorBankAudioUnit : AKAudioUnit
 @property (nonatomic) float pulseWidth;
 @property (nonatomic) float attackDuration;
 @property (nonatomic) float decayDuration;
@@ -20,13 +19,8 @@
 @property (nonatomic) float detuningOffset;
 @property (nonatomic) float detuningMultiplier;
 
-- (void)startNote:(int)note velocity:(int)velocity;
-- (void)stopNote:(int)note;
-- (void)setUpParameterRamp;
-- (BOOL)isSetUp;
-
-@property double rampTime;
+- (void)startNote:(uint8_t)note velocity:(uint8_t)velocity;
+- (void)stopNote:(uint8_t)note;
 
 @end
 
-#endif /* AKPWMOscillatorBankAudioUnit_h */

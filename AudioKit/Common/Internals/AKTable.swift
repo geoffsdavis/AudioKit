@@ -3,10 +3,8 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright © 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import Foundation
 
 /// Supported default table types
 public enum AKTableType: String {
@@ -40,51 +38,54 @@ public enum AKTableType: String {
     /// Reversed sawtooth waveform from 0-1
     case positiveReverseSawtooth
 
-
 }
 
 /// A table of values accessible as a waveform or lookup mechanism
 public struct AKTable: MutableCollection {
+    public typealias Index = Int
+    public typealias IndexDistance = Int
+    public typealias Element = Float
+    public typealias SubSequence = ArraySlice<Element>
 
-    // MARK: - Properties
+    // MARK: - Properties    /// Values stored in the table
 
-    /// Values stored in the table
-    private var content = [Float]()
+    private var content = [Element]()
 
-    public var phase: Double {
+    public var phase: Float {
         didSet {
             phase = (0...1).clamp(phase)
         }
     }
 
-    public var startIndex: Int {
+    public var startIndex: Index {
         return content.startIndex
     }
 
-    public var endIndex: Int {
+    public var endIndex: Index {
         return content.endIndex
     }
 
-    public subscript(index: Int) -> Float {
+    public var count: IndexDistance {
+        return content.count
+    }
+
+    public subscript(index: Index) -> Element {
         get {
             return content[index]
         }
         set {
-            return content[index] = newValue
+            content[index] = newValue
         }
-
-
-    }
-    
-    /// Returns the position immediately after the given index.
-    ///
-    /// - Parameter i: A valid index of the collection. `i` must be less than
-    ///   `endIndex`.
-    /// - Returns: The index value immediately after `i`.
-    public func index(after i: Int) -> Int {
-        return i + 1
     }
 
+    public subscript(bounds: Range<Index>) -> SubSequence {
+        get {
+            return content[bounds]
+        }
+        set {
+            content[bounds] = newValue
+        }
+    }
 
     /// Type of table
     var type: AKTableType
@@ -98,13 +99,13 @@ public struct AKTable: MutableCollection {
     ///   - size: Size of the table (multiple of 2)
     ///
     public init(_ type: AKTableType = .sine,
-                  phase: Double = 0,
-                  count: Int = 4096) {
+                phase: Float = 0,
+                count: IndexDistance = 4_096) {
         self.type = type
         self.phase = phase
-        
-        self.content = [Float](zeroes: count)
-        
+
+        self.content = [Element](zeros: count)
+
         switch type {
         case .sine:
             self.standardSineWave()
@@ -130,7 +131,10 @@ public struct AKTable: MutableCollection {
     }
 
     public var phaseOffset: Int {
-        return Int(phase * count)
+        @inline(__always)
+        get {
+            return Int(phase * count)
+        }
     }
 
     /// Instantiate the table as a triangle wave
@@ -173,7 +177,7 @@ public struct AKTable: MutableCollection {
     /// Instantiate the table as a sine wave
     mutating func standardSineWave() {
         for i in indices {
-            content[i] = Float(sin(2 * 3.14159265 * Float(i + phaseOffset) / Float(count)))
+            content[i] = Float(sin(2 * 3.141_592_65 * Float(i + phaseOffset) / Float(count)))
         }
     }
 
@@ -217,7 +221,36 @@ public struct AKTable: MutableCollection {
     /// Instantiate the table as a sine wave
     mutating func positiveSineWave() {
         for i in indices {
-            content[i] = Float(0.5 + 0.5 * sin(2 * 3.14159265 * Float(i + phaseOffset) / Float(count)))
+            content[i] = Float(0.5 + 0.5 * sin(2 * 3.141_592_65 * Float(i + phaseOffset) / Float(count)))
         }
+    }
+}
+
+extension AKTable: RandomAccessCollection {
+    public typealias Indices = Array<Element>.Indices
+
+    @inline(__always)
+    public func index(before i: Index) -> Index {
+        return i - 1
+    }
+
+    @inline(__always)
+    public func index(after i: Index) -> Index {
+        return i + 1
+    }
+
+    @inline(__always)
+    public func index(_ i: Index, offsetBy n: IndexDistance) -> Index {
+        return i + n
+    }
+
+    @inline(__always)
+    public func formIndex(after i: inout Index) {
+        i += 1
+    }
+
+    @inline(__always)
+    public func distance(from start: Index, to end: Index) -> IndexDistance {
+        return end - start
     }
 }

@@ -3,11 +3,12 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2015 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKOperationEffectDSPKernel_hpp
-#define AKOperationEffectDSPKernel_hpp
+#pragma once
+
+#import <vector>
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -18,23 +19,24 @@ extern "C" {
 #include "plumber.h"
 }
 
+#import "AKCustomUgenInfo.h"
 
-class AKOperationEffectDSPKernel : public DSPKernel {
+class AKOperationEffectDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKOperationEffectDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
         plumber_register(&pd);
         plumber_init(&pd);
+
+        for (auto info : customUgens) {
+          plumber_ftmap_add_function(&pd, info.name, info.func, info.userData);
+        }
+
         pd.sp = sp;
         if (sporthCode != nil) {
             plumber_parse_string(&pd, sporthCode);
@@ -52,7 +54,11 @@ public:
             parameters[i] = params[i];
         }
     };
-    
+
+    void addCustomUgen(AKCustomUgenInfo info) {
+        customUgens.push_back(info);
+    }
+
     void start() {
         started = true;
     }
@@ -63,7 +69,7 @@ public:
 
     void destroy() {
         plumber_clean(&pd);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
     
     void reset() {
@@ -83,11 +89,6 @@ public:
     void startRamp(AUParameterAddress address, AUValue value, AUAudioFrameCount duration) override {
         switch (address) {
         }
-    }
-
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
     }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
@@ -130,18 +131,11 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
-    
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     plumber_data pd;
     char *sporthCode = nil;
+    std::vector<AKCustomUgenInfo> customUgens;
 public:
     float parameters[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     bool started = true;
 };
 
-#endif /* AKOperationEffectDSPKernel_hpp */

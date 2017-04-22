@@ -3,16 +3,13 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2015 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// Testing node
 open class AKTester: AKNode, AKToggleable, AKComponent {
     public typealias AKAudioUnitType = AKTesterAudioUnit
-    static let ComponentDescription = AudioComponentDescription(effect: "tstr")
-
+    public static let ComponentDescription = AudioComponentDescription(effect: "tstr")
 
     // MARK: - Properties
 
@@ -23,12 +20,16 @@ open class AKTester: AKNode, AKToggleable, AKComponent {
 
     /// Calculate the MD5
     open var MD5: String {
-        return (self.internalAU?.getMD5())!
+        return internalAU?.md5 ?? ""
     }
 
     /// Flag on whether or not the test is still in progress
     open var isStarted: Bool {
-        return Int((self.internalAU?.getSamples())!) < totalSamples
+        if let samplesIn = internalAU?.samples {
+            return Int(samplesIn) < totalSamples
+        } else {
+            return false
+        }
     }
 
     // MARK: - Initializers
@@ -39,7 +40,7 @@ open class AKTester: AKNode, AKToggleable, AKComponent {
     ///   - input: AKNode to test
     ///   - sample: Number of sample to product
     ///
-    public init(_ input: AKNode, samples: Int) {
+    public init(_ input: AKNode?, samples: Int) {
 
         testedNode = input as? AKToggleable
         totalSamples = samples
@@ -47,28 +48,24 @@ open class AKTester: AKNode, AKToggleable, AKComponent {
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
 
-            guard let avAudioUnitEffect = avAudioUnit else { return }
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            self.avAudioNode = avAudioUnitEffect
-            self.internalAU = avAudioUnitEffect.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
-            input.addConnectionPoint(self)
-            self.internalAU?.setSamples(Int32(samples))
+            input?.addConnectionPoint(self!)
+            self?.internalAU?.samples = Int32(samples)
         }
     }
 
     /// Function to start, play, or activate the node, all do the same thing
     open func start() {
         testedNode?.start()
-        self.internalAU!.start()
+        internalAU?.start()
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open func stop() {
-        self.internalAU!.stop()
+        internalAU?.stop()
     }
 }

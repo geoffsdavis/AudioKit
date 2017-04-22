@@ -3,45 +3,38 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// These filters are Butterworth second-order IIR filters. They offer an almost
 /// flat passband and very good precision and stopband attenuation.
 ///
-/// - Parameters:
-///   - input: Input node to process
-///   - cutoffFrequency: Cutoff frequency. (in Hertz)
-///
 open class AKLowPassButterworthFilter: AKNode, AKToggleable, AKComponent {
     public typealias AKAudioUnitType = AKLowPassButterworthFilterAudioUnit
-    static let ComponentDescription = AudioComponentDescription(effect: "btlp")
+    public static let ComponentDescription = AudioComponentDescription(effect: "btlp")
 
     // MARK: - Properties
 
-    internal var internalAU: AKAudioUnitType?
-    internal var token: AUParameterObserverToken?
+    private var internalAU: AKAudioUnitType?
+    private var token: AUParameterObserverToken?
 
     fileprivate var cutoffFrequencyParameter: AUParameter?
 
     /// Ramp Time represents the speed at which parameters are allowed to change
-    open var rampTime: Double = AKSettings.rampTime {
+    open dynamic var rampTime: Double = AKSettings.rampTime {
         willSet {
-            if rampTime != newValue {
-                internalAU?.rampTime = newValue
-                internalAU?.setUpParameterRamp()
-            }
+            internalAU?.rampTime = newValue
         }
     }
 
     /// Cutoff frequency. (in Hertz)
-    open var cutoffFrequency: Double = 1000.0 {
+    open dynamic var cutoffFrequency: Double = 1_000.0 {
         willSet {
             if cutoffFrequency != newValue {
-                if internalAU!.isSetUp() {
-                    cutoffFrequencyParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        cutoffFrequencyParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.cutoffFrequency = Float(newValue)
                 }
@@ -50,8 +43,8 @@ open class AKLowPassButterworthFilter: AKNode, AKToggleable, AKComponent {
     }
 
     /// Tells whether the node is processing (ie. started, playing, or active)
-    open var isStarted: Bool {
-        return internalAU!.isPlaying()
+    open dynamic var isStarted: Bool {
+        return internalAU?.isPlaying() ?? false
     }
 
     // MARK: - Initialization
@@ -63,36 +56,33 @@ open class AKLowPassButterworthFilter: AKNode, AKToggleable, AKComponent {
     ///   - cutoffFrequency: Cutoff frequency. (in Hertz)
     ///
     public init(
-        _ input: AKNode,
-        cutoffFrequency: Double = 1000.0) {
+        _ input: AKNode?,
+        cutoffFrequency: Double = 1_000.0) {
 
         self.cutoffFrequency = cutoffFrequency
 
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
 
-            guard let avAudioUnitEffect = avAudioUnit else { return }
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            self.avAudioNode = avAudioUnitEffect
-            self.internalAU = avAudioUnitEffect.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
-            input.addConnectionPoint(self)
+            input?.addConnectionPoint(self!)
         }
 
-        guard let tree = internalAU?.parameterTree else { return }
+        guard let tree = internalAU?.parameterTree else {
+            return
+        }
 
         cutoffFrequencyParameter = tree["cutoffFrequency"]
 
-        token = tree.token (byAddingParameterObserver: {
-            address, value in
+        token = tree.token (byAddingParameterObserver: { [weak self] address, value in
 
             DispatchQueue.main.async {
-                if address == self.cutoffFrequencyParameter!.address {
-                    self.cutoffFrequency = Double(value)
+                if address == self?.cutoffFrequencyParameter?.address {
+                    self?.cutoffFrequency = Double(value)
                 }
             }
         })
@@ -104,11 +94,11 @@ open class AKLowPassButterworthFilter: AKNode, AKToggleable, AKComponent {
 
     /// Function to start, play, or activate the node, all do the same thing
     open func start() {
-        self.internalAU!.start()
+        internalAU?.start()
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open func stop() {
-        self.internalAU!.stop()
+        internalAU?.stop()
     }
 }

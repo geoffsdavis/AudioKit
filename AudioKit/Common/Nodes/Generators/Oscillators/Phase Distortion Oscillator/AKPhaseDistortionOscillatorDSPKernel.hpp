@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKPhaseDistortionOscillatorDSPKernel_hpp
-#define AKPhaseDistortionOscillatorDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -26,20 +25,14 @@ enum {
     detuningMultiplierAddress = 4
 };
 
-class AKPhaseDistortionOscillatorDSPKernel : public DSPKernel {
+class AKPhaseDistortionOscillatorDSPKernel : public AKSoundpipeKernel, public AKOutputBuffered {
 public:
     // MARK: Member Functions
 
     AKPhaseDistortionOscillatorDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
         sp_pdhalf_create(&pdhalf);
         sp_tabread_create(&tab);
@@ -81,7 +74,7 @@ public:
         sp_ftbl_destroy(&ftbl);
         sp_tabread_destroy(&tab);
         sp_phasor_destroy(&phs);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -110,7 +103,7 @@ public:
     }
 
     void setDetuningMultiplier(float value) {
-        detuningMultiplier = clamp(value, 0.5f, 2.0f);
+        detuningMultiplier = value;
         detuningMultiplierRamper.setImmediate(detuningMultiplier);
     }
     
@@ -139,7 +132,7 @@ public:
                 break;
 
             case detuningMultiplierAddress:
-                detuningMultiplierRamper.setUIValue(clamp(value, 0.5f, 2.0f));
+                detuningMultiplierRamper.setUIValue(value);
                 break;
 
         }
@@ -185,14 +178,10 @@ public:
                 break;
 
             case detuningMultiplierAddress:
-                detuningMultiplierRamper.startRamp(clamp(value, 0.5f, 2.0f), duration);
+                detuningMultiplierRamper.startRamp(value, duration);
                 break;
 
         }
-    }
-
-    void setBuffer(AudioBufferList *outBufferList) {
-        outBufferListPtr = outBufferList;
     }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
@@ -233,18 +222,12 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     sp_ftbl *ftbl;
     sp_tabread *tab;
     sp_phasor *phs;
     sp_pdhalf *pdhalf;
     UInt32 ftbl_size = 4096;
-
 
     float frequency = 440;
     float amplitude = 1.0;
@@ -262,4 +245,3 @@ public:
     ParameterRamper detuningMultiplierRamper = 1;
 };
 
-#endif /* AKPhaseDistortionOscillatorDSPKernel_hpp */

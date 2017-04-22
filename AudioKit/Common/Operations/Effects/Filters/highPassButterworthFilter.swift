@@ -3,10 +3,8 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import Foundation
 
 extension AKComputedParameter {
 
@@ -18,6 +16,6 @@ extension AKComputedParameter {
     public func highPassButterworthFilter(
         cutoffFrequency: AKParameter = 500
         ) -> AKComputedParameter {
-        return AKOperation(module: "buthp", inputs: self.toMono(), cutoffFrequency)
+        return AKOperation(module: "buthp", inputs: toMono(), cutoffFrequency)
     }
 }

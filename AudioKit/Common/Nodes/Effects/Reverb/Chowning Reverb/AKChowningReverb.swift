@@ -3,10 +3,8 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// This is was built using the JC reverb implentation found in FAUST. According
 /// to the source code, the specifications for this implementation were found on
@@ -16,57 +14,47 @@ import AVFoundation
 /// three series allpass units, followed by four parallel comb filters, and two
 /// decorrelation delay lines in parallel at the output.
 ///
-/// - parameter input: Input node to process
-///
 open class AKChowningReverb: AKNode, AKToggleable, AKComponent {
     public typealias AKAudioUnitType = AKChowningReverbAudioUnit
-    static let ComponentDescription = AudioComponentDescription(effect: "jcrv")
+    public static let ComponentDescription = AudioComponentDescription(effect: "jcrv")
 
     // MARK: - Properties
-
-
-    internal var internalAU: AKAudioUnitType?
-    internal var token: AUParameterObserverToken?
-
-
+    private var internalAU: AKAudioUnitType?
+    private var token: AUParameterObserverToken?
 
     /// Tells whether the node is processing (ie. started, playing, or active)
-    open var isStarted: Bool {
-        return internalAU!.isPlaying()
+    open dynamic var isStarted: Bool {
+        return internalAU?.isPlaying() ?? false
     }
-    
+
     // MARK: - Initialization
 
     /// Initialize this reverb node
     ///
     /// - parameter input: Input node to process
     ///
-    public init(_ input: AKNode) {
+    public init(_ input: AKNode?) {
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
 
-            guard let avAudioUnitEffect = avAudioUnit else { return }
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            self.avAudioNode = avAudioUnitEffect
-            self.internalAU = avAudioUnitEffect.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
-            input.addConnectionPoint(self)
+            input?.addConnectionPoint(self!)
         }
     }
-    
+
     // MARK: - Control
 
     /// Function to start, play, or activate the node, all do the same thing
     open func start() {
-        self.internalAU!.start()
+        internalAU?.start()
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open func stop() {
-        self.internalAU!.stop()
+        internalAU?.stop()
     }
 }

@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2015 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKBalancerDSPKernel_hpp
-#define AKBalancerDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -19,20 +18,15 @@ extern "C" {
 }
 
 
-class AKBalancerDSPKernel : public DSPKernel {
+class AKBalancerDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKBalancerDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
         sp_bal_create(&bal);
         sp_bal_init(sp, bal);
     }
@@ -47,7 +41,7 @@ public:
     
     void destroy() {
         sp_bal_destroy(&bal);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
     
     void reset() {
@@ -100,19 +94,13 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
     int inputChannels = 4;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
     AudioBufferList *compBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
 
-    sp_data *sp;
     sp_bal *bal;
 
 public:
     bool started = true;
 };
 
-#endif /* AKBalancerDSPKernel_hpp */

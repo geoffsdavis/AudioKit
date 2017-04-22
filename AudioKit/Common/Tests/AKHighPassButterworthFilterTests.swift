@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKHighPassButterworthFilterTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKHighPassButterworthFilterTests: AKTestCase {
         let input = AKOscillator()
         output = AKHighPassButterworthFilter(input)
         input.start()
-        AKTestMD5("6b64e7b172b12b9722a6374ac9fe9663")
+        AKTestMD5("023c370be0234ef4069253a931789684")
     }
 }

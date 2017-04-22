@@ -3,11 +3,12 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2015 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKOperationGeneratorDSPKernel_hpp
-#define AKOperationGeneratorDSPKernel_hpp
+#pragma once
+
+#import <vector>
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -18,23 +19,22 @@ extern "C" {
 #include "plumber.h"
 }
 
+#import "AKCustomUgenInfo.h"
 
-class AKOperationGeneratorDSPKernel : public DSPKernel {
+static int addUgensToKernel(plumber_data *pd, void *ud);
+
+class AKOperationGeneratorDSPKernel : public AKSoundpipeKernel, public AKOutputBuffered {
 public:
     // MARK: Member Functions
 
     AKOperationGeneratorDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
         plumber_register(&pd);
         plumber_init(&pd);
+        addUgensToFTable(&pd);
         pd.sp = sp;
         if (sporthCode != nil) {
             plumber_parse_string(&pd, sporthCode);
@@ -45,7 +45,13 @@ public:
     
     void setSporth(char *sporth) {
         sporthCode = sporth;
-        plumber_recompile_string(&pd, sporthCode);
+        plumber_recompile_string_v2(&pd, sporthCode, this, &addUgensToKernel);
+    }
+
+    void addUgensToFTable(plumber_data *pd) {
+      for (auto info : customUgens) {
+        plumber_ftmap_add_function(pd, info.name, info.func, info.userData);
+      }
     }
     
     void trigger(int trigger) {
@@ -57,7 +63,11 @@ public:
             parameters[i] = params[i];
         }
     };
-    
+
+    void addCustomUgen(AKCustomUgenInfo info) {
+        customUgens.push_back(info);
+    }
+
     void start() {
         started = true;
     }
@@ -69,7 +79,7 @@ public:
 
     void destroy() {
         plumber_clean(&pd);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
     
     void reset() {
@@ -89,10 +99,6 @@ public:
     void startRamp(AUParameterAddress address, AUValue value, AUAudioFrameCount duration) override {
         switch (address) {
         }
-    }
-
-    void setBuffer(AudioBufferList *outBufferList) {
-        outBufferListPtr = outBufferList;
     }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
@@ -137,19 +143,19 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
     int internalTriggers[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     plumber_data pd;
     char *sporthCode = nil;
-    
+    std::vector<AKCustomUgenInfo> customUgens;
+
 public:
     float parameters[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     bool started = false;
 };
 
-#endif /* AKOperationGeneratorDSPKernel_hpp */
+static int addUgensToKernel(plumber_data *pd, void *ud) {
+  auto kernel = (AKOperationGeneratorDSPKernel *)ud;
+  kernel->addUgensToFTable(pd);
+  return PLUMBER_OK;
+}

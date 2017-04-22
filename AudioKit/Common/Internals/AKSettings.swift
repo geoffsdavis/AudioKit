@@ -3,37 +3,16 @@
 //  AudioKit
 //
 //  Created by Stéphane Peter, revision history on Github.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import Foundation
-import AVFoundation
 
 /// Global settings for AudioKit
 @objc open class AKSettings: NSObject {
 
-    /// Enum of available AVAudioSession Categories
-    public enum SessionCategory: String {
-        // Audio silenced by silent switch and screen lock - audio is mixable
-        case ambient = "AVAudioSessionCategoryAmbient"
-        // Audio is silenced by silent switch and screen lock - audio is non mixable
-        case soloAmbient = "AVAudioSessionCategorySoloAmbient"
-        // Audio is not silenced by silent switch and screen lock - audio is non mixable
-        case playback = "AVAudioSessionCategoryPlayback"
-        // Silences playback audio
-        case record = "AVAudioSessionCategoryRecord"
-        // Audio is not silenced by silent switch and screen lock - audio is non mixable. To allow mixing see AVAudioSessionCategoryOptionMixWithOthers.
-        case playAndRecord = "AVAudioSessionCategoryPlayAndRecord"
-        // Disables playback and recording
-        case audioProcessing = "AVAudioSessionCategoryAudioProcessing"
-        // Use to multi-route audio. May be used on input, output, or both.
-        case multiRoute = "AVAudioSessionCategoryMultiRoute"
-    }
-
     /// Enum of available buffer lengths
     /// from Shortest: 2 power 5 samples (32 samples = 0.7 ms @ 44100 kz)
     /// to Longest: 2 power 12 samples (4096 samples = 92.9 ms @ 44100 Hz)
-    public enum BufferLength: Int {
+    @objc public enum BufferLength: Int {
         case shortest = 5
         case veryShort = 6
         case short = 7
@@ -45,7 +24,7 @@ import AVFoundation
 
         /// The buffer Length expressed as number of samples
         var samplesCount: AVAudioFrameCount {
-            return AVAudioFrameCount(pow(2.0, Double(self.rawValue)))
+            return AVAudioFrameCount(pow(2.0, Double(rawValue)))
         }
 
         /// The buffer Length expressed as a duration in seconds
@@ -55,7 +34,7 @@ import AVFoundation
     }
 
     /// The sample rate in Hertz
-    open static var sampleRate: Double = 44100
+    open static var sampleRate: Double = 44_100
 
     /// Number of audio channels: 2 for stereo, 1 for mono
     open static var numberOfChannels: UInt32 = 2
@@ -74,8 +53,16 @@ import AVFoundation
     /// Whether to DefaultToSpeaker when audio input is enabled
     open static var defaultToSpeaker: Bool = false
 
+    /// Whether to use bluetooth when audio input is enabled
+    open static var useBluetooth: Bool = false
+
+#if !os(macOS)
+    // Additional control over the options to use for bluetooth
+    open static var bluetoothOptions: AVAudioSessionCategoryOptions = []
+#endif
+
     /// Global default rampTime value
-    open static var rampTime: Double = 0.0002
+    open static var rampTime: Double = 0.000_2
 
     /// Allows AudioKit to send Notifications
     open static var notificationsEnabled: Bool = false
@@ -99,35 +86,31 @@ import AVFoundation
     /// Enable AudioKit AVAudioSession Category Management
     open static var disableAVAudioSessionCategoryManagement: Bool = false
 
-    #if !os(OSX)
+    /// Turn off AudioKit logging
+    open static var enableLogging: Bool = true
+}
 
-    /// Shortcut for AVAudioSession.sharedInstance()
+#if !os(macOS)
+extension AKSettings {
+
+  /// Shortcut for AVAudioSession.sharedInstance()
     open static let session = AVAudioSession.sharedInstance()
+
+    /// Convenience method accessible from Objective-C
+    @objc open static func setSession(category: SessionCategory, options: UInt) throws {
+        try setSession(category: category, with: AVAudioSessionCategoryOptions(rawValue: options))
+    }
 
     /// Set the audio session type
     open static func setSession(category: SessionCategory,
-                                with options: AVAudioSessionCategoryOptions? = nil ) throws {
-        
+                                with options: AVAudioSessionCategoryOptions = [.mixWithOthers]) throws {
+
         if !AKSettings.disableAVAudioSessionCategoryManagement {
-            
-            if options != nil {
-                do {
-                    try session.setCategory(category.rawValue, with: options!)
-                } catch let error as NSError {
-                    print("AKAsettings Error: Cannot set AVAudioSession Category to \(String(describing: category)) with options: \(String(describing: options!))")
-                    print("AKAsettings Error: \(error))")
+            do {
+                try session.setCategory("\(category)", with: options)
+            } catch let error as NSError {
+                AKLog("Error: \(error) Cannot set AVAudioSession Category to \(category) with options: \(options)")
                     throw error
-                }
-                
-            } else {
-                
-                do {
-                    try session.setCategory(category.rawValue)
-                } catch let error as NSError {
-                    print("AKAsettings Error: Cannot set AVAudioSession Category to \(String(describing: category))")
-                    print("AKAsettings Error: \(error))")
-                    throw error
-                }
             }
         }
 
@@ -136,8 +119,9 @@ import AVFoundation
         do {
             try session.setPreferredIOBufferDuration(bufferLength.duration)
         } catch let error as NSError {
-            print("AKAsettings Error: Cannot set Preferred IOBufferDuration to \(bufferLength.duration) ( = \(bufferLength.samplesCount) samples)")
-            print("AKAsettings Error: \(error))")
+            AKLog("AKSettings Error: Cannot set Preferred IOBufferDuration to " +
+                "\(bufferLength.duration) ( = \(bufferLength.samplesCount) samples)")
+            AKLog("AKSettings Error: \(error))")
             throw error
         }
 
@@ -145,42 +129,59 @@ import AVFoundation
         do {
             try session.setActive(true)
         } catch let error as NSError {
-            print("AKAsettings Error: Cannot set AVAudioSession.setActive to true")
-            print("AKAsettings Error: \(error))")
+            AKLog("AKSettings Error: Cannot set AVAudioSession.setActive to true")
+            AKLog("AKSettings Error: \(error))")
             throw error
-        }
-
-
-        // FOR DEBUG !
-        // (setting the AVAudioSession can be non effective under certain circonstances even if there's no error thrown.)
-        // You may uncomment the next 'print' lines for debugging :
-        // print("AKSettings: asked for: \(category.rawValue)")
-        // print("AKSettings: Session.category is set to: \(session.category)")
-
-        if options != nil {
-            // print("AKSettings: asked for options: \(options!)")
-            // print("AKSettings: Session.category is set to: \(session.categoryOptions)")
         }
     }
 
     /// Checks if headphones are plugged
     /// Returns true if headPhones are plugged, otherwise return false
     static open var headPhonesPlugged: Bool {
-        let route = session.currentRoute
-        var headPhonesFound = false
-        if route.outputs.count > 0 {
-            for description in route.outputs {
-                if description.portType == AVAudioSessionPortHeadphones {
-                    headPhonesFound = true
-                    break
-                }
-            }
+        return session.currentRoute.outputs.contains {
+            $0.portType == AVAudioSessionPortHeadphones
         }
-        return headPhonesFound
     }
-    
-    #endif
-    
-    
-    
+
+    /// Enum of available AVAudioSession Categories
+    @objc public enum SessionCategory: Int, CustomStringConvertible {
+        /// Audio silenced by silent switch and screen lock - audio is mixable
+        case ambient
+        /// Audio is silenced by silent switch and screen lock - audio is non mixable
+        case soloAmbient
+        /// Audio is not silenced by silent switch and screen lock - audio is non mixable
+        case playback
+        /// Silences playback audio
+        case record
+        /// Audio is not silenced by silent switch and screen lock - audio is non mixable. 
+        /// To allow mixing see AVAudioSessionCategoryOptionMixWithOthers.
+        case playAndRecord
+        /// Disables playback and recording
+        #if !os(tvOS)
+        case audioProcessing
+        #endif
+        /// Use to multi-route audio. May be used on input, output, or both.
+        case multiRoute
+
+        public var description: String {
+
+            if self == .ambient {
+                return AVAudioSessionCategoryAmbient
+            } else if self == .soloAmbient {
+                return AVAudioSessionCategorySoloAmbient
+            } else if self == .playback {
+                return AVAudioSessionCategoryPlayback
+            } else if self == .record {
+                return AVAudioSessionCategoryRecord
+            } else if self == .playAndRecord {
+                return AVAudioSessionCategoryPlayAndRecord
+            } else if self == .multiRoute {
+                return AVAudioSessionCategoryMultiRoute
+            }
+
+            fatalError("unrecognized AVAudioSessionCategory \(self)")
+
+      }
+  }
 }
+#endif

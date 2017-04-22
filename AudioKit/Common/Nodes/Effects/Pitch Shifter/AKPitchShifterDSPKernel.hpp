@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKPitchShifterDSPKernel_hpp
-#define AKPitchShifterDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -24,25 +23,24 @@ enum {
     crossfadeAddress = 2
 };
 
-class AKPitchShifterDSPKernel : public DSPKernel {
+class AKPitchShifterDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKPitchShifterDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_pshift_create(&pshift);
-        sp_pshift_init(sp, pshift);
-        *pshift->shift = 0;
-        *pshift->window = 1024;
-        *pshift->xfade = 512;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
+        sp_pshift_create(&pshift0);
+        sp_pshift_create(&pshift1);
+        sp_pshift_init(sp, pshift0);
+        sp_pshift_init(sp, pshift1);
+        *pshift0->shift = 0;
+        *pshift1->shift = 0;
+        *pshift0->window = 1024;
+        *pshift1->window = 1024;
+        *pshift0->xfade = 512;
+        *pshift1->xfade = 512;
 
         shiftRamper.init();
         windowSizeRamper.init();
@@ -58,8 +56,9 @@ public:
     }
 
     void destroy() {
-        sp_pshift_destroy(&pshift);
-        sp_destroy(&sp);
+        sp_pshift_destroy(&pshift0);
+        sp_pshift_destroy(&pshift1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -134,11 +133,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -146,18 +140,25 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             shift = shiftRamper.getAndStep();
-            *pshift->shift = (float)shift;
+            *pshift0->shift = (float)shift;
+            *pshift1->shift = (float)shift;
             windowSize = windowSizeRamper.getAndStep();
-            *pshift->window = (float)windowSize;
+            *pshift0->window = (float)windowSize;
+            *pshift1->window = (float)windowSize;
             crossfade = crossfadeRamper.getAndStep();
-            *pshift->xfade = (float)crossfade;
+            *pshift0->xfade = (float)crossfade;
+            *pshift1->xfade = (float)crossfade;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_pshift_compute(sp, pshift, in, out);
+                    if (channel == 0) {
+                        sp_pshift_compute(sp, pshift0, in, out);
+                    } else {
+                        sp_pshift_compute(sp, pshift1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -168,14 +169,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_pshift *pshift;
+    sp_pshift *pshift0;
+    sp_pshift *pshift1;
 
     float shift = 0;
     float windowSize = 1024;
@@ -189,4 +185,3 @@ public:
     ParameterRamper crossfadeRamper = 512;
 };
 
-#endif /* AKPitchShifterDSPKernel_hpp */

@@ -30,7 +30,7 @@
 #import "EZAudio.h"
 #import "EZAudioFloatConverter.h"
 #import "EZAudioFloatData.h"
-#import "EZAudioFileMarker.h"
+//#import "EZAudioFileMarker.h"
 
 #include <pthread.h>
 
@@ -874,7 +874,7 @@ typedef struct
         afm.type = [[NSNumber alloc] initWithInt:(markers->mMarkers[i].mType)];
         afm.name = (__bridge NSString *)(markers->mMarkers[i].mName);
         
-        NSLog(@"%@\n", afm.name );
+        //NSLog(@"%@\n", afm.name );
         
         [array addObject:afm];
     }

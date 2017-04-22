@@ -3,10 +3,10 @@
 //  AudioKit
 //
 //  Created by Stéphane Peter, revision history on Github.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#if os(OSX)
+#if os(macOS)
     public typealias AKView = NSView
     public typealias AKColor = NSColor
 #else

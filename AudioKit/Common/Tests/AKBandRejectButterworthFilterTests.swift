@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKBandRejectButterworthFilterTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKBandRejectButterworthFilterTests: AKTestCase {
         let input = AKOscillator()
         output = AKBandRejectButterworthFilter(input)
         input.start()
-        AKTestMD5("1867f535fbd070464c14cb2f6bc94f09")
+        AKTestMD5("15f5a0856974d5fd7e08a2a9304447d5")
     }
 }

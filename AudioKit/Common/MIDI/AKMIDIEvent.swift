@@ -3,128 +3,238 @@
 //  AudioKit
 //
 //  Created by Jeff Cooper, revision history on Github.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import Foundation
 import CoreMIDI
 
-extension UInt8 {
+extension MIDIByte {
     /// This limits the range to be from 0 to 127
-    func lower7bits() -> UInt8 {
+    func lower7bits() -> MIDIByte {
         return self & 0x7F
     }
-    
+
     /// This limits the range to be from 0 to 16
-    func lowbit() -> UInt8 {
+    func lowbit() -> MIDIByte {
         return self & 0xF
     }
-    
+}
+
+extension MIDIPacket {
+    var isSysex: Bool {
+        return data.0 == AKMIDISystemCommand.sysex.rawValue
+    }
+
+    var status: AKMIDIStatus? {
+        return AKMIDIStatus(rawValue: Int(data.0) >> 4)
+    }
+
+    var channel: MIDIChannel {
+        return data.0.lowbit()
+    }
+
+    var command: AKMIDISystemCommand? {
+        return AKMIDISystemCommand(rawValue: data.0)
+    }
 }
 
 /// A container for the values that define a MIDI event
 public struct AKMIDIEvent {
-    
+
     // MARK: - Properties
-    
-    /// Internal data - defaults to 3 bytes
-    var internalData = [UInt8](zeroes: 3)
-    
+
+    /// Internal data
+    public var internalData = [MIDIByte](zeros: 128)
+
     /// The length in bytes for this MIDI message (1 to 3 bytes)
-    var length: UInt8?
-    
+    var length: MIDIByte?
+
     /// Status
-    var status: AKMIDIStatus {
+    public var status: AKMIDIStatus? {
         let status = internalData[0] >> 4
-        return AKMIDIStatus(rawValue: Int(status))!
+        return AKMIDIStatus(rawValue: Int(status))
     }
-    
+
     /// System Command
-    var command: AKMIDISystemCommand {
+    public var command: AKMIDISystemCommand? {
         let status = internalData[0] >> 4
         if status < 15 {
             return .none
         }
-        return AKMIDISystemCommand(rawValue: internalData[0])!
+        return AKMIDISystemCommand(rawValue: internalData[0])
     }
-    
+
     /// MIDI Channel
-    var channel: UInt8 {
+    public var channel: MIDIChannel? {
         let status = internalData[0] >> 4
         if status < 16 {
             return internalData[0].lowbit()
         }
+        return nil
+    }
+
+    func statusFrom(rawByte: MIDIByte) -> AKMIDIStatus? {
+        return AKMIDIStatus(rawValue: Int(rawByte >> 4))
+    }
+
+    func channelFrom(rawByte: MIDIByte) -> MIDIChannel {
+        let status = rawByte >> 4
+        if status < 16 {
+            return MIDIChannel(rawByte.lowbit())
+        }
         return 0
     }
-    
-    var data1: UInt8 {
+
+    public var noteNumber: MIDINoteNumber? {
+        if status == .noteOn || status == .noteOff {
+            return MIDINoteNumber(internalData[1])
+        }
+        return nil
+    }
+    public var data1: MIDIByte {
         return internalData[1]
     }
-    
-    var data2: UInt8 {
+
+    public var data2: MIDIByte {
         return internalData[2]
     }
-    
-    var data: UInt16 {
-        if internalData.count < 2{
+
+    var data: MIDIWord {
+        if internalData.count < 2 {
             return 0
         }
-        let x = UInt16(internalData[1])
-        let y = UInt16(internalData[2]) << 7
+        let x = MIDIWord(internalData[1])
+        let y = MIDIWord(internalData[2]) << 7
         return y + x
     }
-    
+
     var bytes: Data {
-        return Data(bytes: UnsafePointer<UInt8>([internalData[0], internalData[1], internalData[2]] as [UInt8]),
-                    count: 3)
+        return Data(bytes: internalData.prefix(3))
     }
-    
-    static fileprivate let statusBit: UInt8 = 0b10000000
-    
+
+    static fileprivate let statusBit: MIDIByte = 0b10000000
+
     // MARK: - Initialization
-    
+
     /// Initialize the MIDI Event from a MIDI Packet
     ///
     /// - parameter packet: MIDIPacket that is potentially a known event type
     ///
     init(packet: MIDIPacket) {
         if packet.data.0 < 0xF0 {
-            let status = AKMIDIStatus(rawValue: Int(packet.data.0) >> 4)
-            let channel = UInt8(packet.data.0.lowbit())
-            
-            if let statusExists = status {
-                fillData(status: statusExists,
-                         channel: channel,
+            if let status = packet.status {
+                fillData(status: status,
+                         channel: packet.channel,
                          byte1: packet.data.1,
                          byte2: packet.data.2)
             }
         } else {
-            
-            if isSysex(packet) {
+
+            guard let existingLength = length else {
+                return
+            }
+            if packet.isSysex {
                 internalData = [] //reset internalData
-                
+                length = MIDIByte(0)
                 //voodoo
-                let mirrorData = Mirror(reflecting: data)
-                var i = 0
-                
+                let mirrorData = Mirror(reflecting: packet.data)
                 for (_, value) in mirrorData.children {
-                    internalData.append(UInt8(value as! UInt8))
-                    i += 1
-                    if value as! UInt8 == 247 {
+                    length = existingLength + 1
+                    guard let byte = value as? MIDIByte else {
+                        return
+                    }
+                    internalData.append(byte)
+                    if byte == 247 {
                         break
                     }
                 }
-                
+
             } else {
-                if let cmd = AKMIDISystemCommand(rawValue: packet.data.0) {
+                if let cmd = packet.command {
                     fillData(command: cmd, byte1: packet.data.1, byte2: packet.data.2)
                 } else {
-                    print("AKMIDISystemCommand failure due to bad data - need to investigate")
+                    AKLog("AKMIDISystemCommand failure due to bad data - need to investigate")
                 }
             }
         }
+        if let existingLength = length {
+            internalData = Array(internalData.prefix(Int(existingLength)))
+        }
     }
-    
+
+    public static func generateFrom(bluetoothData: [MIDIByte]) -> [AKMIDIEvent] {
+        //1st byte timestamp coarse will always be > 128
+        //2nd byte fine timestamp will always be > 128 - if 2nd message < 128, is continuing sysex
+        //3nd < 128 running message - timestamp
+        //status byte determines length of message
+
+        var midiEvents: [AKMIDIEvent] = []
+        if bluetoothData.count > 1 {
+            var rawEvents: [[MIDIByte]] = []
+            if bluetoothData[1] < 128 {
+                //continuation of sysex from previous packet - handle separately 
+                //(probably needs a whole bluetooth midi class so we can see the previous packets)
+            } else {
+                var rawEvent: [MIDIByte] = []
+                var lastStatus: MIDIByte = 0
+                var messageJustFinished = false
+                for byte in bluetoothData.dropFirst().dropFirst() { //drops first two bytes as these are timestamp bytes
+                    if byte >= 128 {
+                        //if we have a new status byte or if rawEvent is a real event
+
+                        if messageJustFinished && byte >= 128 {
+                            messageJustFinished = false
+                            continue
+                        }
+                        lastStatus = byte
+                    } else {
+                        if rawEvent.isEmpty {
+                            rawEvent.append(lastStatus)
+                        }
+                    }
+                    rawEvent.append(byte) //set the status byte
+                    if (rawEvent.count == 3 && lastStatus != AKMIDISystemCommand.sysex.rawValue)
+                        || byte == AKMIDISystemCommand.sysexEnd.rawValue {
+                        //end of message
+                        messageJustFinished = true
+                        if !rawEvent.isEmpty {
+                            rawEvents.append(rawEvent)
+                        }
+                        rawEvent = [] //init raw Event
+                    }
+                }
+            }
+            for event in rawEvents {
+                midiEvents.append(AKMIDIEvent(data: event))
+            }
+        }//end bluetoothData.count > 0
+        return midiEvents
+    }
+
+    /// Initialize the MIDI Event from a raw MIDIByte packet (ie. from Bluetooth)
+    ///
+    /// - Parameters:
+    ///   - data:  [MIDIByte] bluetooth packet
+    ///
+    init(data: [MIDIByte]) {
+        if let command = AKMIDISystemCommand(rawValue: data[0]) {
+            internalData = []
+            //is sys command
+            if command == .sysex {
+                for byte in data {
+                    internalData.append(byte)
+                }
+                length = MIDIByte(internalData.count)
+            } else {
+                fillData(command: command, byte1: data[1], byte2: data[2])
+            }
+        } else if let status = statusFrom(rawByte: data[0]) {
+            //is regular midi status
+            let channel = channelFrom(rawByte: data[0])
+            fillData(status: status, channel: channel, byte1: data[1], byte2: data[2])
+        }
+    }
+
     /// Initialize the MIDI Event from a status message
     ///
     /// - Parameters:
@@ -133,35 +243,33 @@ public struct AKMIDIEvent {
     ///   - byte1:   First data byte
     ///   - byte2:   Second data byte
     ///
-    init(status: AKMIDIStatus, channel: UInt8, byte1: UInt8, byte2: UInt8) {
+    init(status: AKMIDIStatus, channel: MIDIChannel, byte1: MIDIByte, byte2: MIDIByte) {
         fillData(status: status, channel: channel, byte1: byte1, byte2: byte2)
     }
-    
+
     fileprivate mutating func fillData(status: AKMIDIStatus,
-                                       channel: UInt8,
-                                       byte1: UInt8,
-                                       byte2: UInt8) {
-        internalData[0] = UInt8(status.rawValue << 4) | UInt8(channel.lowbit())
+                                       channel: MIDIChannel,
+                                       byte1: MIDIByte,
+                                       byte2: MIDIByte) {
+        internalData[0] = MIDIByte(status.rawValue << 4) | MIDIByte(channel.lowbit())
         internalData[1] = byte1.lower7bits()
         internalData[2] = byte2.lower7bits()
-        
+
         switch status {
         case .controllerChange:
-            if byte1 < AKMIDIControl.dataEntryPlus.rawValue ||
-                byte1 == AKMIDIControl.localControlOnOff.rawValue {
-                
-                length = 3
-            } else {
-                length = 2
-            }
-        case .channelAftertouch: break
+            length = 3
+        case .channelAftertouch:
+            break
         case .programChange:
             length = 2
         default:
             length = 3
         }
+        if let existingLength = length {
+            internalData = Array(internalData.prefix(Int(existingLength)))
+        }
     }
-    
+
     /// Initialize the MIDI Event from a system command message
     ///
     /// - Parameters:
@@ -169,17 +277,18 @@ public struct AKMIDIEvent {
     ///   - byte1:   First data byte
     ///   - byte2:   Second data byte
     ///
-    init(command: AKMIDISystemCommand, byte1: UInt8, byte2: UInt8) {
+    init(command: AKMIDISystemCommand, byte1: MIDIByte, byte2: MIDIByte) {
         fillData(command: command, byte1: byte1, byte2: byte2)
     }
-    
+
     fileprivate mutating func fillData(command: AKMIDISystemCommand,
-                                       byte1: UInt8,
-                                       byte2: UInt8) {
+                                       byte1: MIDIByte,
+                                       byte2: MIDIByte) {
         internalData[0] = command.rawValue
-        
+
         switch command {
         case .sysex:
+            AKLog("sysex")
             break
         case .songPosition:
             internalData[1] = byte1.lower7bits()
@@ -191,35 +300,38 @@ public struct AKMIDIEvent {
         default:
             length = 1
         }
+        if let existingLength = length {
+            internalData = Array(internalData.prefix(Int(existingLength)))
+        }
     }
-    
+
     // MARK: - Utility constructors for common MIDI events
-    
+
     /// Determine whether a given byte is the status byte for a MIDI event
     ///
     /// - parameter byte: Byte to test
     ///
-    static func isStatusByte(_ byte: UInt8) -> Bool {
+    static func isStatusByte(_ byte: MIDIByte) -> Bool {
         return (byte & AKMIDIEvent.statusBit) == AKMIDIEvent.statusBit
     }
-    
+
     /// Determine whether a given byte is a data byte for a MIDI Event
     ///
     /// - parameter byte: Byte to test
     ///
-    static func isDataByte(_ byte: UInt8) -> Bool {
+    static func isDataByte(_ byte: MIDIByte) -> Bool {
         return (byte & AKMIDIEvent.statusBit) == 0
     }
-    
+
     /// Convert a byte into a MIDI Status
     ///
     /// - parameter byte: Byte to convert
     ///
-    static func statusFromValue(_ byte: UInt8) -> AKMIDIStatus {
+    static func statusFromValue(_ byte: MIDIByte) -> AKMIDIStatus {
         let status = byte >> 4
-        return AKMIDIStatus(rawValue: Int(status))!
+        return AKMIDIStatus(rawValue: Int(status)) ?? .nothing
     }
-    
+
     /// Create note on event
     ///
     /// - Parameters:
@@ -227,15 +339,15 @@ public struct AKMIDIEvent {
     ///   - velocity:   MIDI Note velocity (0-127)
     ///   - channel:    Channel on which the note appears
     ///
-    static public func noteOn(noteNumber: UInt8,
-                              velocity: UInt8,
-                              channel: UInt8 ) -> AKMIDIEvent {
-        return AKMIDIEvent(status: .noteOn,
-                           channel: channel,
-                           byte1: noteNumber,
-                           byte2: velocity)
+    public init(noteOn noteNumber: MIDINoteNumber,
+                velocity: MIDIVelocity,
+                channel: MIDIChannel) {
+      self.init(status: .noteOn,
+                channel: channel,
+                byte1: noteNumber,
+                byte2: velocity)
     }
-    
+
     /// Create note off event
     ///
     /// - Parameters:
@@ -243,29 +355,29 @@ public struct AKMIDIEvent {
     ///   - velocity:   MIDI Note velocity (0-127)
     ///   - channel:    Channel on which the note appears
     ///
-    static public func noteOff(noteNumber: UInt8,
-                               velocity: UInt8,
-                               channel: UInt8) -> AKMIDIEvent {
-        return AKMIDIEvent(status: .noteOff,
-                           channel: channel,
-                           byte1: noteNumber,
-                           byte2: velocity)
+  public init(noteOff noteNumber: MIDINoteNumber,
+              velocity: MIDIVelocity,
+              channel: MIDIChannel) {
+        self.init(status: .noteOff,
+                  channel: channel,
+                  byte1: noteNumber,
+                  byte2: velocity)
     }
-    
+
     /// Create program change event
     ///
     /// - Parameters:
     ///   - data: Program change byte
     ///   - channel: Channel on which the program change appears
     ///
-    static public func programChange(data: UInt8,
-                                     channel: UInt8) -> AKMIDIEvent {
-        return AKMIDIEvent(status: .programChange,
-                           channel: channel,
-                           byte1: data,
-                           byte2: 0)
+    public init(programChange data: MIDIByte,
+                channel: MIDIChannel) {
+      self.init(status: .programChange,
+                channel: channel,
+                byte1: data,
+                byte2: 0)
     }
-    
+
     /// Create controller event
     ///
     /// - Parameters:
@@ -273,17 +385,16 @@ public struct AKMIDIEvent {
     ///   - value:      Value of the controller
     ///   - channel:    Channel on which the controller value has changed
     ///
-    static public func controllerChange(controller: UInt8,
-                                        value: UInt8,
-                                        channel: UInt8) -> AKMIDIEvent {
-        return AKMIDIEvent(status: .controllerChange,
-                           channel: channel,
-                           byte1: controller,
-                           byte2: value)
+    public init(controllerChange controller: MIDIByte,
+                value: MIDIByte,
+                channel: MIDIChannel) {
+      self.init(status: .controllerChange,
+                channel: channel,
+                byte1: controller,
+                byte2: value)
     }
-    
-    fileprivate func isSysex(_ packet: MIDIPacket) -> Bool {
-        return packet.data.0 == AKMIDISystemCommand.sysex.rawValue
+
+    static public func midiEventsFrom(packetListPointer: UnsafePointer< MIDIPacketList>) -> [AKMIDIEvent] {
+        return packetListPointer.pointee.map { AKMIDIEvent(packet: $0) }
     }
-    
 }

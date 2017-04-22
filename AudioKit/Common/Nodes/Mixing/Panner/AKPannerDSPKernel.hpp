@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKPannerDSPKernel_hpp
-#define AKPannerDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -22,20 +21,15 @@ enum {
     panAddress = 0
 };
 
-class AKPannerDSPKernel : public DSPKernel {
+class AKPannerDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKPannerDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
         sp_panst_create(&panst);
         sp_panst_init(sp, panst);
         panst->pan = 0;
@@ -53,7 +47,7 @@ public:
 
     void destroy() {
         sp_panst_destroy(&panst);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -94,11 +88,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -132,13 +121,7 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     sp_panst *panst;
     
     float pan = 0.0;
@@ -149,4 +132,3 @@ public:
     ParameterRamper panRamper = 0;
 };
 
-#endif /* AKPannerDSPKernel_hpp */

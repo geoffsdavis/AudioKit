@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKConvolutionDSPKernel_hpp
-#define AKConvolutionDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -19,21 +18,16 @@ extern "C" {
 }
 
 
-class AKConvolutionDSPKernel : public DSPKernel {
+class AKConvolutionDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKConvolutionDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_conv_create(&conv);
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
+        sp_conv_create(&conv0);
+        sp_conv_create(&conv1);
 
     }
 
@@ -43,7 +37,8 @@ public:
 
     void start() {
         started = true;
-        sp_conv_init(sp, conv, ftbl, (float)partitionLength);
+        sp_conv_init(sp, conv0, ftbl, (float)partitionLength);
+        sp_conv_init(sp, conv1, ftbl, (float)partitionLength);
     }
 
     void stop() {
@@ -57,8 +52,9 @@ public:
     }
 
     void destroy() {
-        sp_conv_destroy(&conv);
-        sp_destroy(&sp);
+        sp_conv_destroy(&conv0);
+        sp_conv_destroy(&conv1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -81,11 +77,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -96,7 +87,11 @@ public:
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
                 
                 if (started) {
-                    sp_conv_compute(sp, conv, in, out);
+                    if (channel == 0) {
+                        sp_conv_compute(sp, conv0, in, out);
+                    } else {
+                        sp_conv_compute(sp, conv1, in, out);
+                    }
                     *out = *out * 0.05; // Hack
                 } else {
                     *out = *in;
@@ -109,20 +104,16 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
     int partitionLength = 2048;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_conv *conv;
+    sp_conv *conv0;
+    sp_conv *conv1;
+    
     sp_ftbl *ftbl;
     UInt32 ftbl_size = 4096;
 
 public:
     bool started = true;
+    bool resetted = true;
 };
 
-#endif /* AKConvolutionDSPKernel_hpp */

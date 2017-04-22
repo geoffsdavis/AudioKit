@@ -10,6 +10,7 @@ PLATFORMS=${PLATFORMS:-"iOS tvOS macOS"}
 if ! which gsed > /dev/null 2>&1;
 then
 	echo "You need GNU sed installed to run this script properly!"
+	echo "  brew install gnu-sed"
 	exit 1
 fi
 
@@ -49,10 +50,26 @@ create_package()
 	zip -9yr ${DIR}-${VERSION}.zip $DIR
 }
 
+create_playgrounds()
+{
+	echo "Packaging AudioKit Playgrounds version $VERSION ..."
+	cp -a ../Playgrounds AudioKitPlaygrounds
+	cd AudioKitPlaygrounds
+	cp -a ../AudioKit-macOS/AudioKit.framework AudioKitPlaygrounds/
+	gsed -i "s/\.\.\/\.\.\/Frameworks\/AudioKit-macOS/\./g" AudioKitPlaygrounds.xcodeproj/project.pbxproj
+	gsed -i "s/\.\.\/Frameworks\/AudioKit-macOS//g" AudioKitPlaygrounds.xcodeproj/project.pbxproj
+	cp ../../README.md ../../LICENSE .
+	find . -name .DS_Store -or -name build -or -name xcuserdata -exec rm -rf {} \;
+	cd ..
+        zip -9yr AudioKitPlaygrounds-${VERSION}.zip AudioKitPlaygrounds
+}
+
 for os in $PLATFORMS;
 do
 	create_package $os
 done
+
+create_playgrounds
 
 # Create binary framework zip for Carthage, to be uploaded to Github along with release
 

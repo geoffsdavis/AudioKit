@@ -3,15 +3,14 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKFMOscillatorBankAudioUnit_h
-#define AKFMOscillatorBankAudioUnit_h
+#pragma once
 
-#import <AudioToolbox/AudioToolbox.h>
+#import "AKAudioUnit.h"
 
-@interface AKFMOscillatorBankAudioUnit : AUAudioUnit
+@interface AKFMOscillatorBankAudioUnit : AKAudioUnit
 
 @property (nonatomic) float carrierMultiplier;
 @property (nonatomic) float modulatingMultiplier;
@@ -26,13 +25,7 @@
 
 - (void)setupWaveform:(int)size;
 - (void)setWaveformValue:(float)value atIndex:(UInt32)index;
-- (void)startNote:(int)note velocity:(int)velocity;
-- (void)stopNote:(int)note;
-- (void)setUpParameterRamp;
-- (BOOL)isSetUp;
-
-@property double rampTime;
+- (void)startNote:(uint8_t)note velocity:(uint8_t)velocity;
+- (void)stopNote:(uint8_t)note;
 
 @end
-
-#endif /* AKFMOscillatorBankAudioUnit_h */

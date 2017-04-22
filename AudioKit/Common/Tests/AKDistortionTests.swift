@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKDistortionTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKDistortionTests: AKTestCase {
         let input = AKOscillator()
         output = AKDistortion(input)
         input.start()
-        AKTestMD5("916365c697093a0bb8b5b75b73463887")
+        AKTestMD5("2992f15308b484a046459b4442a2aab7")
     }
 }

@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKDripDSPKernel_hpp
-#define AKDripDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -28,20 +27,14 @@ enum {
     amplitudeAddress = 6
 };
 
-class AKDripDSPKernel : public DSPKernel {
+class AKDripDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKDripDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
         sp_drip_create(&drip);
         sp_drip_init(sp, drip, 0.9);
         drip->num_tubes = 10;
@@ -71,7 +64,7 @@ public:
 
     void destroy() {
         sp_drip_destroy(&drip);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -217,10 +210,6 @@ public:
         }
     }
 
-    void setBuffer(AudioBufferList *outBufferList) {
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -260,14 +249,8 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
     float internalTrigger = 0;
-    
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
 
-    sp_data *sp;
     sp_drip *drip;
 
     float intensity = 10;
@@ -290,4 +273,3 @@ public:
     ParameterRamper amplitudeRamper = 0.3;
 };
 
-#endif /* AKDripDSPKernel_hpp */

@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKFormantFilterDSPKernel_hpp
-#define AKFormantFilterDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -16,37 +15,31 @@
 
 extern "C" {
 #include "soundpipe.h"
+#include "growl.h"
 }
 
 enum {
-    centerFrequencyAddress = 0,
-    attackDurationAddress = 1,
-    decayDurationAddress = 2
+    xAddress = 0,
+    yAddress = 1
 };
 
-class AKFormantFilterDSPKernel : public DSPKernel {
+class AKFormantFilterDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKFormantFilterDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
+        growl_create(&growl);
+        growl_init(sp, growl);
 
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_fofilt_create(&fofilt);
-        sp_fofilt_init(sp, fofilt);
-        fofilt->freq = 1000;
-        fofilt->atk = 0.007;
-        fofilt->dec = 0.04;
+        growl->x = 0;
+        growl->y = 0;
 
-        centerFrequencyRamper.init();
-        attackDurationRamper.init();
-        decayDurationRamper.init();
+        xRamper.init();
+        yRamper.init();
     }
 
     void start() {
@@ -58,60 +51,45 @@ public:
     }
 
     void destroy() {
-        sp_fofilt_destroy(&fofilt);
-        sp_destroy(&sp);
+        growl_destroy(&growl);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
         resetted = true;
-        centerFrequencyRamper.reset();
-        attackDurationRamper.reset();
-        decayDurationRamper.reset();
+        xRamper.reset();
+        yRamper.reset();
     }
 
-    void setCenterFrequency(float value) {
-        centerFrequency = clamp(value, 12.0f, 20000.0f);
-        centerFrequencyRamper.setImmediate(centerFrequency);
+    void setX(float value) {
+        x = clamp(value, 0.0f, 1.0f);
+        xRamper.setImmediate(x);
     }
 
-    void setAttackDuration(float value) {
-        attackDuration = clamp(value, 0.0f, 0.1f);
-        attackDurationRamper.setImmediate(attackDuration);
+    void setY(float value) {
+        y = clamp(value, 0.0f, 1.0f);
+        yRamper.setImmediate(y);
     }
-
-    void setDecayDuration(float value) {
-        decayDuration = clamp(value, 0.0f, 0.1f);
-        decayDurationRamper.setImmediate(decayDuration);
-    }
-
 
     void setParameter(AUParameterAddress address, AUValue value) {
         switch (address) {
-            case centerFrequencyAddress:
-                centerFrequencyRamper.setUIValue(clamp(value, 12.0f, 20000.0f));
+            case xAddress:
+                xRamper.setUIValue(clamp(value, 0.0f, 1.0f));
                 break;
 
-            case attackDurationAddress:
-                attackDurationRamper.setUIValue(clamp(value, 0.0f, 0.1f));
+            case yAddress:
+                yRamper.setUIValue(clamp(value, 0.0f, 1.0f));
                 break;
-
-            case decayDurationAddress:
-                decayDurationRamper.setUIValue(clamp(value, 0.0f, 0.1f));
-                break;
-
         }
     }
 
     AUValue getParameter(AUParameterAddress address) {
         switch (address) {
-            case centerFrequencyAddress:
-                return centerFrequencyRamper.getUIValue();
+            case xAddress:
+                return xRamper.getUIValue();
 
-            case attackDurationAddress:
-                return attackDurationRamper.getUIValue();
-
-            case decayDurationAddress:
-                return decayDurationRamper.getUIValue();
+            case yAddress:
+                return yRamper.getUIValue();
 
             default: return 0.0f;
         }
@@ -119,24 +97,15 @@ public:
 
     void startRamp(AUParameterAddress address, AUValue value, AUAudioFrameCount duration) override {
         switch (address) {
-            case centerFrequencyAddress:
-                centerFrequencyRamper.startRamp(clamp(value, 12.0f, 20000.0f), duration);
+            case xAddress:
+                xRamper.startRamp(clamp(value, 0.0f, 1.0f), duration);
                 break;
 
-            case attackDurationAddress:
-                attackDurationRamper.startRamp(clamp(value, 0.0f, 0.1f), duration);
-                break;
-
-            case decayDurationAddress:
-                decayDurationRamper.startRamp(clamp(value, 0.0f, 0.1f), duration);
+            case yAddress:
+                yRamper.startRamp(clamp(value, 0.0f, 1.0f), duration);
                 break;
 
         }
-    }
-
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
     }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
@@ -145,19 +114,18 @@ public:
 
             int frameOffset = int(frameIndex + bufferOffset);
 
-            centerFrequency = centerFrequencyRamper.getAndStep();
-            fofilt->freq = (float)centerFrequency;
-            attackDuration = attackDurationRamper.getAndStep();
-            fofilt->atk = (float)attackDuration;
-            decayDuration = decayDurationRamper.getAndStep();
-            fofilt->dec = (float)decayDuration;
+            x = xRamper.getAndStep();
+            growl->x = (float)x;
+            y = yRamper.getAndStep();
+            growl->y = (float)y;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
-
+                
                 if (started) {
-                    sp_fofilt_compute(sp, fofilt, in, out);
+                    growl_compute(sp, growl, in, out);
+                    *out = *in;
                 } else {
                     *out = *in;
                 }
@@ -168,25 +136,15 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
-
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_fofilt *fofilt;
-
-    float centerFrequency = 1000;
-    float attackDuration = 0.007;
-    float decayDuration = 0.04;
+    
+    growl_d *growl;
+    float x = 0;
+    float y = 0;
 
 public:
     bool started = true;
     bool resetted = false;
-    ParameterRamper centerFrequencyRamper = 1000;
-    ParameterRamper attackDurationRamper = 0.007;
-    ParameterRamper decayDurationRamper = 0.04;
+    ParameterRamper xRamper = 0;
+    ParameterRamper yRamper = 0;
 };
 
-#endif /* AKFormantFilterDSPKernel_hpp */

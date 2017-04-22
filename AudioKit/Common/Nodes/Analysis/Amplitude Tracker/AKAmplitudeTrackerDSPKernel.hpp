@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKAmplitudeTrackerDSPKernel_hpp
-#define AKAmplitudeTrackerDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -22,20 +21,14 @@ enum {
     halfPowerPointAddress = 0
 };
 
-class AKAmplitudeTrackerDSPKernel : public DSPKernel {
+class AKAmplitudeTrackerDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKAmplitudeTrackerDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
         sp_rms_create(&rms);
         sp_rms_init(sp, rms);
         rms->ihp = 10;
@@ -50,8 +43,9 @@ public:
     }
 
     void destroy() {
+        //printf("AKAmplitudeTrackerDSPKernel.destroy() \n");
+        AKSoundpipeKernel::destroy();
         sp_rms_destroy(&rms);
-        sp_destroy(&sp);
     }
 
     void reset() {
@@ -84,11 +78,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -117,13 +106,6 @@ public:
 
 private:
 
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
-
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     sp_rms *rms;
 
 public:
@@ -131,5 +113,3 @@ public:
     bool started = true;
     float trackedAmplitude = 0.0;
 };
-
-#endif /* AKAmplitudeTrackerDSPKernel_hpp */

@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKTanhDistortionDSPKernel_hpp
-#define AKTanhDistortionDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -25,26 +24,27 @@ enum {
     negativeShapeParameterAddress = 3
 };
 
-class AKTanhDistortionDSPKernel : public DSPKernel {
+class AKTanhDistortionDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKTanhDistortionDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_dist_create(&dist);
-        sp_dist_init(sp, dist);
-        dist->pregain = 2.0;
-        dist->postgain = 0.5;
-        dist->shape1 = 0.0;
-        dist->shape2 = 0.0;
+        sp_dist_create(&dist0);
+        sp_dist_create(&dist1);
+        sp_dist_init(sp, dist0);
+        sp_dist_init(sp, dist1);
+        dist0->pregain = 2.0;
+        dist1->pregain = 2.0;
+        dist0->postgain = 0.5;
+        dist1->postgain = 0.5;
+        dist0->shape1 = 0.0;
+        dist1->shape1 = 0.0;
+        dist0->shape2 = 0.0;
+        dist1->shape2 = 0.0;
 
         pregainRamper.init();
         postgainRamper.init();
@@ -61,8 +61,9 @@ public:
     }
 
     void destroy() {
-        sp_dist_destroy(&dist);
-        sp_destroy(&sp);
+        sp_dist_destroy(&dist0);
+        sp_dist_destroy(&dist1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -154,11 +155,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -166,20 +162,28 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             pregain = pregainRamper.getAndStep();
-            dist->pregain = (float)pregain;
+            dist0->pregain = (float)pregain;
+            dist1->pregain = (float)pregain;
             postgain = postgainRamper.getAndStep();
-            dist->postgain = (float)postgain;
+            dist0->postgain = (float)postgain;
+            dist1->postgain = (float)postgain;
             postiveShapeParameter = postiveShapeParameterRamper.getAndStep();
-            dist->shape1 = (float)postiveShapeParameter;
+            dist0->shape1 = (float)postiveShapeParameter;
+            dist1->shape1 = (float)postiveShapeParameter;
             negativeShapeParameter = negativeShapeParameterRamper.getAndStep();
-            dist->shape2 = (float)negativeShapeParameter;
+            dist0->shape2 = (float)negativeShapeParameter;
+            dist1->shape2 = (float)negativeShapeParameter;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_dist_compute(sp, dist, in, out);
+                    if (channel == 0) {
+                        sp_dist_compute(sp, dist0, in, out);
+                    } else {
+                        sp_dist_compute(sp, dist1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -190,14 +194,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_dist *dist;
+    sp_dist *dist0;
+    sp_dist *dist1;
 
     float pregain = 2.0;
     float postgain = 0.5;
@@ -212,5 +211,3 @@ public:
     ParameterRamper postiveShapeParameterRamper = 0.0;
     ParameterRamper negativeShapeParameterRamper = 0.0;
 };
-
-#endif /* AKTanhDistortionDSPKernel_hpp */

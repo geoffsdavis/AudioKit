@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKPeakingParametricEqualizerFilterTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKPeakingParametricEqualizerFilterTests: AKTestCase {
         let input = AKOscillator()
         output = AKPeakingParametricEqualizerFilter(input)
         input.start()
-        AKTestMD5("a73c90d6351cd6830cbea4efe1591e7b")
+        AKTestMD5("d1003d6785e625834b6c9772a32017ee")
     }
 }

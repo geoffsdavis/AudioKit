@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKCombFilterReverbDSPKernel_hpp
-#define AKCombFilterReverbDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -22,23 +21,20 @@ enum {
     reverbDurationAddress = 0
 };
 
-class AKCombFilterReverbDSPKernel : public DSPKernel {
+class AKCombFilterReverbDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKCombFilterReverbDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_comb_create(&comb);
-        sp_comb_init(sp, comb, internalLoopDuration);
-        comb->revtime = 1.0;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
+        sp_comb_create(&comb0);
+        sp_comb_create(&comb1);
+        sp_comb_init(sp, comb0, internalLoopDuration);
+        sp_comb_init(sp, comb1, internalLoopDuration);
+        comb0->revtime = 1.0;
+        comb1->revtime = 1.0;
 
         reverbDurationRamper.init();
     }
@@ -52,8 +48,9 @@ public:
     }
 
     void destroy() {
-        sp_comb_destroy(&comb);
-        sp_destroy(&sp);
+        sp_comb_destroy(&comb0);
+        sp_comb_destroy(&comb1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -97,11 +94,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -109,14 +101,19 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             reverbDuration = reverbDurationRamper.getAndStep();
-            comb->revtime = (float)reverbDuration;
+            comb0->revtime = (float)reverbDuration;
+            comb1->revtime = (float)reverbDuration;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
                 
                 if (started) {
-                    sp_comb_compute(sp, comb, in, out);
+                    if (channel==0) {
+                        sp_comb_compute(sp, comb0, in, out);
+                    } else {
+                        sp_comb_compute(sp, comb1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -127,14 +124,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_comb *comb;
+    sp_comb *comb0;
+    sp_comb *comb1;
 
     float reverbDuration = 1.0;
     float internalLoopDuration = 0.1;
@@ -145,4 +137,3 @@ public:
     ParameterRamper reverbDurationRamper = 1.0;
 };
 
-#endif /* AKCombFilterReverbDSPKernel_hpp */

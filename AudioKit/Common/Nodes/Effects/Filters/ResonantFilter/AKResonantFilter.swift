@@ -3,46 +3,39 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// The output for reson appears to be very hot, so take caution when using this
 /// module.
 ///
-/// - parameter input: Input node to process
-/// - parameter frequency: Center frequency of the filter, or frequency position of the peak response.
-/// - parameter bandwidth: Bandwidth of the filter.
-///
 open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
     public typealias AKAudioUnitType = AKResonantFilterAudioUnit
-    static let ComponentDescription = AudioComponentDescription(effect: "resn")
+    public static let ComponentDescription = AudioComponentDescription(effect: "resn")
 
     // MARK: - Properties
 
-    internal var internalAU: AKAudioUnitType?
-    internal var token: AUParameterObserverToken?
+    private var internalAU: AKAudioUnitType?
+    private var token: AUParameterObserverToken?
 
     fileprivate var frequencyParameter: AUParameter?
     fileprivate var bandwidthParameter: AUParameter?
 
     /// Ramp Time represents the speed at which parameters are allowed to change
-    open var rampTime: Double = AKSettings.rampTime {
+    open dynamic var rampTime: Double = AKSettings.rampTime {
         willSet {
-            if rampTime != newValue {
-                internalAU?.rampTime = newValue
-                internalAU?.setUpParameterRamp()
-            }
+            internalAU?.rampTime = newValue
         }
     }
 
     /// Center frequency of the filter, or frequency position of the peak response.
-    open var frequency: Double = 4000.0 {
+    open dynamic var frequency: Double = 4_000.0 {
         willSet {
             if frequency != newValue {
-                if internalAU!.isSetUp() {
-                    frequencyParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        frequencyParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.frequency = Float(newValue)
                 }
@@ -50,11 +43,13 @@ open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
         }
     }
     /// Bandwidth of the filter.
-    open var bandwidth: Double = 1000.0 {
+    open dynamic var bandwidth: Double = 1_000.0 {
         willSet {
             if bandwidth != newValue {
-                if internalAU!.isSetUp() {
-                    bandwidthParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        bandwidthParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.bandwidth = Float(newValue)
                 }
@@ -63,8 +58,8 @@ open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
     }
 
     /// Tells whether the node is processing (ie. started, playing, or active)
-    open var isStarted: Bool {
-        return internalAU!.isPlaying()
+    open dynamic var isStarted: Bool {
+        return internalAU?.isPlaying() ?? false
     }
 
     // MARK: - Initialization
@@ -76,9 +71,9 @@ open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
     /// - parameter bandwidth: Bandwidth of the filter.
     ///
     public init(
-        _ input: AKNode,
-        frequency: Double = 4000.0,
-        bandwidth: Double = 1000.0) {
+        _ input: AKNode?,
+        frequency: Double = 4_000.0,
+        bandwidth: Double = 1_000.0) {
 
         self.frequency = frequency
         self.bandwidth = bandwidth
@@ -86,31 +81,28 @@ open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
 
-            guard let avAudioUnitEffect = avAudioUnit else { return }
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            self.avAudioNode = avAudioUnitEffect
-            self.internalAU = avAudioUnitEffect.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
-            input.addConnectionPoint(self)
+            input?.addConnectionPoint(self!)
         }
 
-        guard let tree = internalAU?.parameterTree else { return }
+        guard let tree = internalAU?.parameterTree else {
+            return
+        }
 
         frequencyParameter = tree["frequency"]
         bandwidthParameter = tree["bandwidth"]
 
-        token = tree.token (byAddingParameterObserver: {
-            address, value in
+        token = tree.token (byAddingParameterObserver: { [weak self] address, value in
 
             DispatchQueue.main.async {
-                if address == self.frequencyParameter!.address {
-                    self.frequency = Double(value)
-                } else if address == self.bandwidthParameter!.address {
-                    self.bandwidth = Double(value)
+                if address == self?.frequencyParameter?.address {
+                    self?.frequency = Double(value)
+                } else if address == self?.bandwidthParameter?.address {
+                    self?.bandwidth = Double(value)
                 }
             }
         })
@@ -123,11 +115,11 @@ open class AKResonantFilter: AKNode, AKToggleable, AKComponent {
 
     /// Function to start, play, or activate the node, all do the same thing
     open func start() {
-        self.internalAU!.start()
+        internalAU?.start()
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open func stop() {
-        self.internalAU!.stop()
+        internalAU?.stop()
     }
 }

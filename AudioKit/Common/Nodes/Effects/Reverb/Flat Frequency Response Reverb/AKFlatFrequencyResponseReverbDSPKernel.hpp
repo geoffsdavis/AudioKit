@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKFlatFrequencyResponseReverbDSPKernel_hpp
-#define AKFlatFrequencyResponseReverbDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -22,23 +21,20 @@ enum {
     reverbDurationAddress = 0
 };
 
-class AKFlatFrequencyResponseReverbDSPKernel : public DSPKernel {
+class AKFlatFrequencyResponseReverbDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKFlatFrequencyResponseReverbDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
-
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_allpass_create(&allpass);
-        sp_allpass_init(sp, allpass, internalLoopDuration);
-        allpass->revtime = 0.5;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
+        sp_allpass_create(&allpass0);
+        sp_allpass_create(&allpass1);
+        sp_allpass_init(sp, allpass0, internalLoopDuration);
+        sp_allpass_init(sp, allpass1, internalLoopDuration);
+        allpass0->revtime = 0.5;
+        allpass1->revtime = 0.5;
 
         reverbDurationRamper.init();
     }
@@ -52,8 +48,9 @@ public:
     }
 
     void destroy() {
-        sp_allpass_destroy(&allpass);
-        sp_destroy(&sp);
+        sp_allpass_destroy(&allpass0);
+        sp_allpass_destroy(&allpass1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -97,11 +94,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -109,14 +101,19 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             reverbDuration = reverbDurationRamper.getAndStep();
-            allpass->revtime = (float)reverbDuration;
+            allpass0->revtime = (float)reverbDuration;
+            allpass1->revtime = (float)reverbDuration;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_allpass_compute(sp, allpass, in, out);
+                    if (channel==0) {
+                        sp_allpass_compute(sp, allpass0, in, out);
+                    } else {
+                        sp_allpass_compute(sp, allpass1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -127,14 +124,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_allpass *allpass;
+    sp_allpass *allpass0;
+    sp_allpass *allpass1;
 
     float reverbDuration = 0.5;
     float internalLoopDuration = 0.1;
@@ -144,5 +136,3 @@ public:
     bool resetted = false;
     ParameterRamper reverbDurationRamper = 0.5;
 };
-
-#endif /* AKFlatFrequencyResponseReverbDSPKernel_hpp */

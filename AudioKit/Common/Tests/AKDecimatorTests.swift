@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKDecimatorTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKDecimatorTests: AKTestCase {
         let input = AKOscillator()
         output = AKDecimator(input)
         input.start()
-        AKTestMD5("6b8ce6b9f8ca2a948c46467cfb4a7327")
+        AKTestMD5("06415139391aca488441c521aea09726")
     }
 }

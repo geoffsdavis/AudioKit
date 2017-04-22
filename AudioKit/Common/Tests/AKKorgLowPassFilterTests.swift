@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKKorgLowPassFilterTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKKorgLowPassFilterTests: AKTestCase {
         let input = AKOscillator()
         output = AKKorgLowPassFilter(input)
         input.start()
-        AKTestMD5("7af70e231a5d56dff8b06fbeef921e78")
+        AKTestMD5("60784c8de74c0ce230d4eb460dbd3904")
     }
 }

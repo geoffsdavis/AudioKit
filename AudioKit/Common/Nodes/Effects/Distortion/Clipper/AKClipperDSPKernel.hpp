@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKClipperDSPKernel_hpp
-#define AKClipperDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -22,23 +21,21 @@ enum {
     limitAddress = 0
 };
 
-class AKClipperDSPKernel : public DSPKernel {
+class AKClipperDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKClipperDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_clip_create(&clip);
-        sp_clip_init(sp, clip);
-        clip->lim = 1.0;
+        sp_clip_create(&clip0);
+        sp_clip_create(&clip1);
+        sp_clip_init(sp, clip0);
+        sp_clip_init(sp, clip1);
+        clip0->lim = 1.0;
+        clip1->lim = 1.0;
 
         limitRamper.init();
     }
@@ -52,8 +49,9 @@ public:
     }
 
     void destroy() {
-        sp_clip_destroy(&clip);
-        sp_destroy(&sp);
+        sp_clip_destroy(&clip0);
+        sp_clip_destroy(&clip1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -94,11 +92,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -106,14 +99,19 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             limit = limitRamper.getAndStep();
-            clip->lim = (float)limit;
+            clip0->lim = (float)limit;
+            clip1->lim = (float)limit;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_clip_compute(sp, clip, in, out);
+                    if (channel == 0) {
+                        sp_clip_compute(sp, clip0, in, out);
+                    } else {
+                        sp_clip_compute(sp, clip1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -124,14 +122,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_clip *clip;
+    sp_clip *clip0;
+    sp_clip *clip1;
 
     float limit = 1.0;
 
@@ -140,5 +133,3 @@ public:
     bool resetted = false;
     ParameterRamper limitRamper = 1.0;
 };
-
-#endif /* AKClipperDSPKernel_hpp */

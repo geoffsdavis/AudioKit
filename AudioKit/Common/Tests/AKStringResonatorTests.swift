@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKStringResonatorTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKStringResonatorTests: AKTestCase {
         let input = AKOscillator()
         output = AKStringResonator(input)
         input.start()
-        AKTestMD5("e7c52eedcf58d0a0990a4faace230621")
+        AKTestMD5("82e87c2d67c4c79e29d3a49979858c11")
     }
 }

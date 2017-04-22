@@ -3,54 +3,39 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// This is an oscillator with linear interpolation that is capable of morphing
 /// between an arbitrary number of wavetables.
 ///
-/// - Parameters:
-///   - waveform:           The waveform of oscillation
-///   - index:              Index of the wavetable to use (fractional are okay).
-///   - attackDuration:     Attack time
-///   - decayDuration:      Decay time
-///   - sustainLevel:       Sustain Level
-///   - releaseDuration:    Release time
-///   - detuningOffset:     Frequency offset in Hz.
-///   - detuningMultiplier: Frequency detuning multiplier
-///
 open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
     public typealias AKAudioUnitType = AKMorphingOscillatorBankAudioUnit
-    static let ComponentDescription = AudioComponentDescription(generator: "morb")
+    public static let ComponentDescription = AudioComponentDescription(generator: "morb")
 
     // MARK: - Properties
 
-    internal var internalAU: AKAudioUnitType?
-    internal var token: AUParameterObserverToken?
+    private var internalAU: AKAudioUnitType?
+    private var token: AUParameterObserverToken?
 
     fileprivate var waveformArray = [AKTable]()
 
-    fileprivate var attackDurationParameter:     AUParameter?
-    fileprivate var decayDurationParameter:      AUParameter?
-    fileprivate var sustainLevelParameter:       AUParameter?
-    fileprivate var releaseDurationParameter:    AUParameter?
-    fileprivate var detuningOffsetParameter:     AUParameter?
+    fileprivate var attackDurationParameter: AUParameter?
+    fileprivate var decayDurationParameter: AUParameter?
+    fileprivate var sustainLevelParameter: AUParameter?
+    fileprivate var releaseDurationParameter: AUParameter?
+    fileprivate var detuningOffsetParameter: AUParameter?
     fileprivate var detuningMultiplierParameter: AUParameter?
 
     /// Ramp Time represents the speed at which parameters are allowed to change
-    open var rampTime: Double = AKSettings.rampTime {
+    open dynamic var rampTime: Double = AKSettings.rampTime {
         willSet {
-            if rampTime != newValue {
-                internalAU?.rampTime = newValue
-                internalAU?.setUpParameterRamp()
-            }
+            internalAU?.rampTime = newValue
         }
     }
 
     /// Index of the wavetable to use (fractional are okay).
-    open var index: Double = 0.0 {
+    open dynamic var index: Double = 0.0 {
         willSet {
             let transformedValue = Float(newValue) / Float(waveformArray.count - 1)
             internalAU?.index = Float(transformedValue)
@@ -58,11 +43,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
     }
 
     /// Attack time
-    open var attackDuration: Double = 0.1 {
+    open dynamic var attackDuration: Double = 0.1 {
         willSet {
             if attackDuration != newValue {
-                if internalAU!.isSetUp() {
-                    attackDurationParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        attackDurationParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.attackDuration = Float(newValue)
                 }
@@ -70,11 +57,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
         }
     }
     /// Decay time
-    open var decayDuration: Double = 0.1 {
+    open dynamic var decayDuration: Double = 0.1 {
         willSet {
             if decayDuration != newValue {
-                if internalAU!.isSetUp() {
-                    decayDurationParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        decayDurationParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.decayDuration = Float(newValue)
                 }
@@ -82,11 +71,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
         }
     }
     /// Sustain Level
-    open var sustainLevel: Double = 1.0 {
+    open dynamic var sustainLevel: Double = 1.0 {
         willSet {
             if sustainLevel != newValue {
-                if internalAU!.isSetUp() {
-                    sustainLevelParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        sustainLevelParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.sustainLevel = Float(newValue)
                 }
@@ -94,11 +85,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
         }
     }
     /// Release time
-    open var releaseDuration: Double = 0.1 {
+    open dynamic var releaseDuration: Double = 0.1 {
         willSet {
             if releaseDuration != newValue {
-                if internalAU!.isSetUp() {
-                    releaseDurationParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        releaseDurationParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.releaseDuration = Float(newValue)
                 }
@@ -107,11 +100,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
     }
 
     /// Frequency offset in Hz.
-    open var detuningOffset: Double = 0 {
+    open dynamic var detuningOffset: Double = 0 {
         willSet {
             if detuningOffset != newValue {
-                if internalAU!.isSetUp() {
-                    detuningOffsetParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        detuningOffsetParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.detuningOffset = Float(newValue)
                 }
@@ -120,11 +115,13 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
     }
 
     /// Frequency detuning multiplier
-    open var detuningMultiplier: Double = 1 {
+    open dynamic var detuningMultiplier: Double = 1 {
         willSet {
             if detuningMultiplier != newValue {
-                if internalAU!.isSetUp() {
-                    detuningMultiplierParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        detuningMultiplierParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.detuningMultiplier = Float(newValue)
                 }
@@ -142,7 +139,7 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
     /// Initialize this oscillator node
     ///
     /// - Parameters:
-    ///   - waveform:           The waveform of oscillation
+    ///   - waveformArray:      An array of 4 waveforms
     ///   - index:              Index of the wavetable to use (fractional are okay).
     ///   - attackDuration:     Attack time
     ///   - decayDuration:      Decay time
@@ -174,58 +171,54 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            guard let avAudioUnitGenerator = avAudioUnit else { return }
-
-            self.avAudioNode = avAudioUnitGenerator
-            self.internalAU = avAudioUnitGenerator.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
             for (i, waveform) in waveformArray.enumerated() {
-                self.internalAU?.setupWaveform(UInt32(i), size: Int32(UInt32(waveform.count)))
+                self?.internalAU?.setupWaveform(UInt32(i), size: Int32(UInt32(waveform.count)))
                 for (j, sample) in waveform.enumerated() {
-                    self.internalAU?.setWaveform(UInt32(i), withValue: sample, at: UInt32(j))
+                    self?.internalAU?.setWaveform(UInt32(i), withValue: sample, at: UInt32(j))
                 }
             }
         }
 
-        guard let tree = internalAU?.parameterTree else { return }
+        guard let tree = internalAU?.parameterTree else {
+            return
+        }
 
-        attackDurationParameter     = tree["attackDuration"]
-        decayDurationParameter      = tree["decayDuration"]
-        sustainLevelParameter       = tree["sustainLevel"]
-        releaseDurationParameter    = tree["releaseDuration"]
-        detuningOffsetParameter     = tree["detuningOffset"]
+        attackDurationParameter = tree["attackDuration"]
+        decayDurationParameter = tree["decayDuration"]
+        sustainLevelParameter = tree["sustainLevel"]
+        releaseDurationParameter = tree["releaseDuration"]
+        detuningOffsetParameter = tree["detuningOffset"]
         detuningMultiplierParameter = tree["detuningMultiplier"]
 
-        token = tree.token (byAddingParameterObserver: {
-            address, value in
+        token = tree.token (byAddingParameterObserver: { [weak self] address, value in
 
             DispatchQueue.main.async {
-                if address == self.attackDurationParameter!.address {
-                    self.attackDuration = Double(value)
-                } else if address == self.decayDurationParameter!.address {
-                    self.decayDuration = Double(value)
-                } else if address == self.sustainLevelParameter!.address {
-                    self.sustainLevel = Double(value)
-                } else if address == self.releaseDurationParameter!.address {
-                    self.releaseDuration = Double(value)
-                } else if address == self.detuningOffsetParameter!.address {
-                    self.detuningOffset = Double(value)
-                } else if address == self.detuningMultiplierParameter!.address {
-                    self.detuningMultiplier = Double(value)
+                if address == self?.attackDurationParameter?.address {
+                    self?.attackDuration = Double(value)
+                } else if address == self?.decayDurationParameter?.address {
+                    self?.decayDuration = Double(value)
+                } else if address == self?.sustainLevelParameter?.address {
+                    self?.sustainLevel = Double(value)
+                } else if address == self?.releaseDurationParameter?.address {
+                    self?.releaseDuration = Double(value)
+                } else if address == self?.detuningOffsetParameter?.address {
+                    self?.detuningOffset = Double(value)
+                } else if address == self?.detuningMultiplierParameter?.address {
+                    self?.detuningMultiplier = Double(value)
                 }
             }
         })
         internalAU?.index = Float(index) / Float(waveformArray.count - 1)
 
-        internalAU?.attackDuration     = Float(attackDuration)
-        internalAU?.decayDuration      = Float(decayDuration)
-        internalAU?.sustainLevel       = Float(sustainLevel)
-        internalAU?.releaseDuration    = Float(releaseDuration)
-        internalAU?.detuningOffset     = Float(detuningOffset)
+        internalAU?.attackDuration = Float(attackDuration)
+        internalAU?.decayDuration = Float(decayDuration)
+        internalAU?.sustainLevel = Float(sustainLevel)
+        internalAU?.releaseDuration = Float(releaseDuration)
+        internalAU?.detuningOffset = Float(detuningOffset)
         internalAU?.detuningMultiplier = Float(detuningMultiplier)
     }
 
@@ -233,11 +226,11 @@ open class AKMorphingOscillatorBank: AKPolyphonicNode, AKComponent {
 
     /// Function to start, play, or activate the node, all do the same thing
     open override func play(noteNumber: MIDINoteNumber, velocity: MIDIVelocity) {
-        self.internalAU!.startNote(Int32(noteNumber), velocity: Int32(velocity))
+        internalAU?.startNote(noteNumber, velocity: velocity)
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open override func stop(noteNumber: MIDINoteNumber) {
-        self.internalAU!.stopNote(Int32(noteNumber))
+        internalAU?.stopNote(noteNumber)
     }
 }

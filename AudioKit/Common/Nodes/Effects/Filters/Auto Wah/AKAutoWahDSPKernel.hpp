@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKAutoWahDSPKernel_hpp
-#define AKAutoWahDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -24,25 +23,26 @@ enum {
     amplitudeAddress = 2
 };
 
-class AKAutoWahDSPKernel : public DSPKernel {
+class AKAutoWahDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKAutoWahDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
+        sp_autowah_create(&autowah0);
+        sp_autowah_init(sp, autowah0);
+        *autowah0->wah = 0.0;
+        *autowah0->mix = 1.0;
+        *autowah0->level = 0.1;
 
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_autowah_create(&autowah);
-        sp_autowah_init(sp, autowah);
-        *autowah->wah = 0.0;
-        *autowah->mix = 1.0;
-        *autowah->level = 0.1;
+        sp_autowah_create(&autowah1);
+        sp_autowah_init(sp, autowah1);
+        *autowah1->wah = 0.0;
+        *autowah1->mix = 1.0;
+        *autowah1->level = 0.1;
 
         wahRamper.init();
         mixRamper.init();
@@ -58,8 +58,9 @@ public:
     }
 
     void destroy() {
-        sp_autowah_destroy(&autowah);
-        sp_destroy(&sp);
+        sp_autowah_destroy(&autowah0);
+        sp_autowah_destroy(&autowah1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -134,11 +135,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -146,18 +142,25 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             wah = wahRamper.getAndStep();
-            *autowah->wah = (float)wah;
+            *autowah0->wah = (float)wah;
+            *autowah1->wah = (float)wah;
             mix = mixRamper.getAndStep();
-            *autowah->mix = (float)mix * 100.0;
+            *autowah0->mix = (float)mix * 100.0;
+            *autowah1->mix = (float)mix * 100.0;
             amplitude = amplitudeRamper.getAndStep();
-            *autowah->level = (float)amplitude;
+            *autowah0->level = (float)amplitude;
+            *autowah1->level = (float)amplitude;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_autowah_compute(sp, autowah, in, out);
+                    if (channel == 0) {
+                        sp_autowah_compute(sp, autowah0, in, out);
+                    } else {
+                        sp_autowah_compute(sp, autowah1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -168,14 +171,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_autowah *autowah;
+    sp_autowah *autowah0;
+    sp_autowah *autowah1;
 
     float wah = 0.0;
     float mix = 1.0;
@@ -188,5 +186,3 @@ public:
     ParameterRamper mixRamper = 1.0;
     ParameterRamper amplitudeRamper = 0.1;
 };
-
-#endif /* AKAutoWahDSPKernel_hpp */

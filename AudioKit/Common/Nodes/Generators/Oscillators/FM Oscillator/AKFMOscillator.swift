@@ -3,29 +3,19 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
-
-import AVFoundation
 
 /// Classic FM Synthesis audio generation.
 ///
-/// - Parameters:
-///   - waveform: Shape of the oscillation
-///   - baseFrequency: In cycles per second, or Hz, this is the common denominator for the carrier and modulating frequencies.
-///   - carrierMultiplier: This multiplied by the baseFrequency gives the carrier frequency.
-///   - modulatingMultiplier: This multiplied by the baseFrequency gives the modulating frequency.
-///   - modulationIndex: This multiplied by the modulating frequency gives the modulation amplitude.
-///   - amplitude: Output Amplitude.
-///
 open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     public typealias AKAudioUnitType = AKFMOscillatorAudioUnit
-    static let ComponentDescription = AudioComponentDescription(generator: "fosc")
+    public static let ComponentDescription = AudioComponentDescription(generator: "fosc")
 
     // MARK: - Properties
 
-    internal var internalAU: AKAudioUnitType?
-    internal var token: AUParameterObserverToken?
+    private var internalAU: AKAudioUnitType?
+    private var token: AUParameterObserverToken?
 
     fileprivate var waveform: AKTable?
 
@@ -36,21 +26,20 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     fileprivate var amplitudeParameter: AUParameter?
 
     /// Ramp Time represents the speed at which parameters are allowed to change
-    open var rampTime: Double = AKSettings.rampTime {
+    open dynamic var rampTime: Double = AKSettings.rampTime {
         willSet {
-            if rampTime != newValue {
-                internalAU?.rampTime = newValue
-                internalAU?.setUpParameterRamp()
-            }
+            internalAU?.rampTime = newValue
         }
     }
 
     /// In cycles per second, or Hz, this is the common denominator for the carrier and modulating frequencies.
-    open var baseFrequency: Double = 440 {
+    open dynamic var baseFrequency: Double = 440 {
         willSet {
             if baseFrequency != newValue {
-                if internalAU!.isSetUp() {
-                    baseFrequencyParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        baseFrequencyParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.baseFrequency = Float(newValue)
                 }
@@ -59,11 +48,13 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     }
 
     /// This multiplied by the baseFrequency gives the carrier frequency.
-    open var carrierMultiplier: Double = 1.0 {
+    open dynamic var carrierMultiplier: Double = 1.0 {
         willSet {
             if carrierMultiplier != newValue {
-                if internalAU!.isSetUp() {
-                    carrierMultiplierParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        carrierMultiplierParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.carrierMultiplier = Float(newValue)
                 }
@@ -72,11 +63,13 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     }
 
     /// This multiplied by the baseFrequency gives the modulating frequency.
-    open var modulatingMultiplier: Double = 1 {
+    open dynamic var modulatingMultiplier: Double = 1 {
         willSet {
             if modulatingMultiplier != newValue {
-                if internalAU!.isSetUp() {
-                    modulatingMultiplierParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        modulatingMultiplierParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.modulatingMultiplier = Float(newValue)
                 }
@@ -85,11 +78,13 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     }
 
     /// This multiplied by the modulating frequency gives the modulation amplitude.
-    open var modulationIndex: Double = 1 {
+    open dynamic var modulationIndex: Double = 1 {
         willSet {
             if modulationIndex != newValue {
-                if internalAU!.isSetUp() {
-                    modulationIndexParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        modulationIndexParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.modulationIndex = Float(newValue)
                 }
@@ -98,11 +93,13 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     }
 
     /// Output Amplitude.
-    open var amplitude: Double = 1 {
+    open dynamic var amplitude: Double = 1 {
         willSet {
             if amplitude != newValue {
-                if internalAU!.isSetUp() {
-                    amplitudeParameter?.setValue(Float(newValue), originator: token!)
+                if internalAU?.isSetUp() ?? false {
+                    if let existingToken = token {
+                        amplitudeParameter?.setValue(Float(newValue), originator: existingToken)
+                    }
                 } else {
                     internalAU?.amplitude = Float(newValue)
                 }
@@ -111,8 +108,8 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     }
 
     /// Tells whether the node is processing (ie. started, playing, or active)
-    open var isStarted: Bool {
-        return internalAU!.isPlaying()
+    open dynamic var isStarted: Bool {
+        return internalAU?.isPlaying() ?? false
     }
 
     // MARK: - Initialization
@@ -126,7 +123,7 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
     ///
     /// - Parameters:
     ///   - waveform: Shape of the oscillation
-    ///   - baseFrequency: In cycles per second, or Hz, this is the common denominator for the carrier and modulating frequencies.
+    ///   - baseFrequency: In Hz, this is the common denominator for the carrier and modulating frequencies.
     ///   - carrierMultiplier: This multiplied by the baseFrequency gives the carrier frequency.
     ///   - modulatingMultiplier: This multiplied by the baseFrequency gives the modulating frequency.
     ///   - modulationIndex: This multiplied by the modulating frequency gives the modulation amplitude.
@@ -140,7 +137,6 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
         modulationIndex: Double = 1,
         amplitude: Double = 1) {
 
-
         self.waveform = waveform
         self.baseFrequency = baseFrequency
         self.carrierMultiplier = carrierMultiplier
@@ -151,43 +147,39 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
         _Self.register()
 
         super.init()
-        AVAudioUnit.instantiate(with: _Self.ComponentDescription, options: []) {
-            avAudioUnit, error in
+        AVAudioUnit._instantiate(with: _Self.ComponentDescription) { [weak self] avAudioUnit in
+            self?.avAudioNode = avAudioUnit
+            self?.internalAU = avAudioUnit.auAudioUnit as? AKAudioUnitType
 
-            guard let avAudioUnitGenerator = avAudioUnit else { return }
-
-            self.avAudioNode = avAudioUnitGenerator
-            self.internalAU = avAudioUnitGenerator.auAudioUnit as? AKAudioUnitType
-
-            AudioKit.engine.attach(self.avAudioNode)
-            self.internalAU?.setupWaveform(Int32(waveform.count))
+            self?.internalAU?.setupWaveform(Int32(waveform.count))
             for (i, sample) in waveform.enumerated() {
-                self.internalAU?.setWaveformValue(sample, at: UInt32(i))
+                self?.internalAU?.setWaveformValue(sample, at: UInt32(i))
             }
         }
 
-        guard let tree = internalAU?.parameterTree else { return }
+        guard let tree = internalAU?.parameterTree else {
+            return
+        }
 
-        baseFrequencyParameter        = tree["baseFrequency"]
-        carrierMultiplierParameter    = tree["carrierMultiplier"]
+        baseFrequencyParameter = tree["baseFrequency"]
+        carrierMultiplierParameter = tree["carrierMultiplier"]
         modulatingMultiplierParameter = tree["modulatingMultiplier"]
-        modulationIndexParameter      = tree["modulationIndex"]
-        amplitudeParameter            = tree["amplitude"]
+        modulationIndexParameter = tree["modulationIndex"]
+        amplitudeParameter = tree["amplitude"]
 
-        token = tree.token (byAddingParameterObserver: {
-            address, value in
+        token = tree.token (byAddingParameterObserver: { [weak self] address, value in
 
             DispatchQueue.main.async {
-                if address == self.baseFrequencyParameter!.address {
-                    self.baseFrequency = Double(value)
-                } else if address == self.carrierMultiplierParameter!.address {
-                    self.carrierMultiplier = Double(value)
-                } else if address == self.modulatingMultiplierParameter!.address {
-                    self.modulatingMultiplier = Double(value)
-                } else if address == self.modulationIndexParameter!.address {
-                    self.modulationIndex = Double(value)
-                } else if address == self.amplitudeParameter!.address {
-                    self.amplitude = Double(value)
+                if address == self?.baseFrequencyParameter?.address {
+                    self?.baseFrequency = Double(value)
+                } else if address == self?.carrierMultiplierParameter?.address {
+                    self?.carrierMultiplier = Double(value)
+                } else if address == self?.modulatingMultiplierParameter?.address {
+                    self?.modulatingMultiplier = Double(value)
+                } else if address == self?.modulationIndexParameter?.address {
+                    self?.modulationIndex = Double(value)
+                } else if address == self?.amplitudeParameter?.address {
+                    self?.amplitude = Double(value)
                 }
             }
         })
@@ -200,11 +192,11 @@ open class AKFMOscillator: AKNode, AKToggleable, AKComponent {
 
     /// Function to start, play, or activate the node, all do the same thing
     open func start() {
-        self.internalAU!.start()
+        internalAU?.start()
     }
 
     /// Function to stop or bypass the node, both are equivalent
     open func stop() {
-        self.internalAU!.stop()
+        internalAU?.stop()
     }
 }

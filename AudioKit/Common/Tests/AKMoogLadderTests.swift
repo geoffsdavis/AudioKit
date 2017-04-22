@@ -3,11 +3,11 @@
 //  AudioKitTestSuite
 //
 //  Created by Aurelius Prochazka on 8/9/16.
-//  Copyright © 2016 AudioKit. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-import XCTest
 import AudioKit
+import XCTest
 
 class AKMoogLadderTests: AKTestCase {
 
@@ -15,6 +15,6 @@ class AKMoogLadderTests: AKTestCase {
         let input = AKOscillator()
         output = AKMoogLadder(input)
         input.start()
-        AKTestMD5("abe11090068d5b9eb05a3d0e94d381e8")
+        AKTestMD5("d35b507249824188ed4907dd5ae243f2")
     }
 }

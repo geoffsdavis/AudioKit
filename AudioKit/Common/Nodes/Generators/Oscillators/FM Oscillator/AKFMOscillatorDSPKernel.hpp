@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKFMOscillatorDSPKernel_hpp
-#define AKFMOscillatorDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -26,20 +25,15 @@ enum {
     amplitudeAddress = 4
 };
 
-class AKFMOscillatorDSPKernel : public DSPKernel {
+class AKFMOscillatorDSPKernel : public AKSoundpipeKernel, public AKOutputBuffered {
 public:
     // MARK: Member Functions
 
     AKFMOscillatorDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
         sp_fosc_create(&fosc);
         sp_fosc_init(sp, fosc, ftbl);
         
@@ -74,7 +68,7 @@ public:
 
     void destroy() {
         sp_fosc_destroy(&fosc);
-        sp_destroy(&sp);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -183,10 +177,6 @@ public:
         }
     }
 
-    void setBuffer(AudioBufferList *outBufferList) {
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -223,12 +213,7 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
     sp_fosc *fosc;
     sp_ftbl *ftbl;
     UInt32 ftbl_size = 4096;
@@ -249,4 +234,3 @@ public:
     ParameterRamper amplitudeRamper = 1;
 };
 
-#endif /* AKFMOscillatorDSPKernel_hpp */

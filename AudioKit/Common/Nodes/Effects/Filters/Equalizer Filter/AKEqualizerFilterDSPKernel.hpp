@@ -3,11 +3,10 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright (c) 2016 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
 //
 
-#ifndef AKEqualizerFilterDSPKernel_hpp
-#define AKEqualizerFilterDSPKernel_hpp
+#pragma once
 
 #import "DSPKernel.hpp"
 #import "ParameterRamper.hpp"
@@ -24,25 +23,25 @@ enum {
     gainAddress = 2
 };
 
-class AKEqualizerFilterDSPKernel : public DSPKernel {
+class AKEqualizerFilterDSPKernel : public AKSoundpipeKernel, public AKBuffered {
 public:
     // MARK: Member Functions
 
     AKEqualizerFilterDSPKernel() {}
 
-    void init(int channelCount, double inSampleRate) {
-        channels = channelCount;
+    void init(int _channels, double _sampleRate) override {
+        AKSoundpipeKernel::init(_channels, _sampleRate);
 
-        sampleRate = float(inSampleRate);
-
-        sp_create(&sp);
-        sp->sr = sampleRate;
-        sp->nchan = channels;
-        sp_eqfil_create(&eqfil);
-        sp_eqfil_init(sp, eqfil);
-        eqfil->freq = 1000.0;
-        eqfil->bw = 100.0;
-        eqfil->gain = 10.0;
+        sp_eqfil_create(&eqfil0);
+        sp_eqfil_create(&eqfil1);
+        sp_eqfil_init(sp, eqfil0);
+        sp_eqfil_init(sp, eqfil1);
+        eqfil0->freq = 1000.0;
+        eqfil1->freq = 1000.0;
+        eqfil0->bw = 100.0;
+        eqfil1->bw = 100.0;
+        eqfil0->gain = 10.0;
+        eqfil1->gain = 10.0;
 
         centerFrequencyRamper.init();
         bandwidthRamper.init();
@@ -58,8 +57,9 @@ public:
     }
 
     void destroy() {
-        sp_eqfil_destroy(&eqfil);
-        sp_destroy(&sp);
+        sp_eqfil_destroy(&eqfil0);
+        sp_eqfil_destroy(&eqfil1);
+        AKSoundpipeKernel::destroy();
     }
 
     void reset() {
@@ -134,11 +134,6 @@ public:
         }
     }
 
-    void setBuffers(AudioBufferList *inBufferList, AudioBufferList *outBufferList) {
-        inBufferListPtr = inBufferList;
-        outBufferListPtr = outBufferList;
-    }
-
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
 
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
@@ -146,18 +141,25 @@ public:
             int frameOffset = int(frameIndex + bufferOffset);
 
             centerFrequency = centerFrequencyRamper.getAndStep();
-            eqfil->freq = (float)centerFrequency;
+            eqfil0->freq = (float)centerFrequency;
+            eqfil1->freq = (float)centerFrequency;
             bandwidth = bandwidthRamper.getAndStep();
-            eqfil->bw = (float)bandwidth;
+            eqfil0->bw = (float)bandwidth;
+            eqfil1->bw = (float)bandwidth;
             gain = gainRamper.getAndStep();
-            eqfil->gain = (float)gain;
+            eqfil0->gain = (float)gain;
+            eqfil1->gain = (float)gain;
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
 
                 if (started) {
-                    sp_eqfil_compute(sp, eqfil, in, out);
+                    if (channel == 0) {
+                        sp_eqfil_compute(sp, eqfil0, in, out);
+                    } else {
+                        sp_eqfil_compute(sp, eqfil1, in, out);
+                    }
                 } else {
                     *out = *in;
                 }
@@ -168,14 +170,9 @@ public:
     // MARK: Member Variables
 
 private:
-    int channels = AKSettings.numberOfChannels;
-    float sampleRate = AKSettings.sampleRate;
 
-    AudioBufferList *inBufferListPtr = nullptr;
-    AudioBufferList *outBufferListPtr = nullptr;
-
-    sp_data *sp;
-    sp_eqfil *eqfil;
+    sp_eqfil *eqfil0;
+    sp_eqfil *eqfil1;
 
     float centerFrequency = 1000.0;
     float bandwidth = 100.0;
@@ -188,5 +185,3 @@ public:
     ParameterRamper bandwidthRamper = 100.0;
     ParameterRamper gainRamper = 10.0;
 };
-
-#endif /* AKEqualizerFilterDSPKernel_hpp */
