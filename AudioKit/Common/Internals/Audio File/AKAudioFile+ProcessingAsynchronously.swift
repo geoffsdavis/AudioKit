@@ -342,6 +342,9 @@ extension AKAudioFile {
             switch baseDir {
             case .temp:
                 filePath = (NSTemporaryDirectory() as String) + fileName
+            case .libraryCaches:
+                let documentsPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0]
+                filePath = documentsPath + "/" + fileName
             case .documents:
                 let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
                 filePath = documentsPath + "/" + fileName

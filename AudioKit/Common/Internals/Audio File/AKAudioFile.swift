@@ -175,6 +175,9 @@ open class AKAudioFile: AVAudioFile {
     public enum BaseDirectory {
         /// Temporary directory
         case temp
+        
+        /// Library Caches directory
+        case libraryCaches
 
         /// Documents directory
         case documents
@@ -189,6 +192,8 @@ open class AKAudioFile: AVAudioFile {
           switch (self, write) {
             case (.temp, _):
               return NSTemporaryDirectory() + path
+          case (.libraryCaches, _):
+                return NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0] + "/" + path
             case (.documents, _):
               return NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0] + "/" + path
             case (.resources, false):
