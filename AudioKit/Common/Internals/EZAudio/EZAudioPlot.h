@@ -91,6 +91,11 @@ FOUNDATION_EXPORT UInt32 const EZAudioPlotDefaultMaxHistoryBufferLength;
  */
 @property (nonatomic, assign) BOOL shouldOptimizeForRealtimePlot;
 
+/**
+ A BOOL that tells the audio plot to render itself to a bitmap. This can significantly improve GPU performance, resulting in smoother UI interaction and animations. The downside is the loss of resolution indenpendence, where the bitmap may look pixelated if stretched or scaled.
+ */
+@property (nonatomic, assign) BOOL shouldRasterize;
+
 //------------------------------------------------------------------------------
 
 /**

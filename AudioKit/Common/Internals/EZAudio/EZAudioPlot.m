@@ -227,6 +227,11 @@ UInt32 const EZAudioPlotDefaultMaxHistoryBufferLength = 8192;
     }
 }
 
+- (void)setShouldRasterize:(BOOL)shouldRasterize
+{
+    self.waveformLayer.shouldRasterize = shouldRasterize;
+}
+
 //------------------------------------------------------------------------------
 
 - (void)setShouldFill:(BOOL)shouldFill
@@ -342,10 +347,6 @@ UInt32 const EZAudioPlotDefaultMaxHistoryBufferLength = 8192;
 
 - (void)updateBuffer:(float *)buffer withBufferSize:(UInt32)bufferSize
 {
-    // append the buffer to the history
-    [EZAudioUtilities appendBufferRMS:buffer
-                       withBufferSize:bufferSize
-                        toHistoryInfo:self.historyInfo];
     
     // copy samples
     switch (self.plotType)
@@ -356,19 +357,21 @@ UInt32 const EZAudioPlotDefaultMaxHistoryBufferLength = 8192;
             [self redraw];
             break;
         case EZPlotTypeRolling:
-            
+            // append the buffer to the history
+            [EZAudioUtilities appendBufferRMS:buffer
+                               withBufferSize:bufferSize
+                                toHistoryInfo:self.historyInfo];
             [self setSampleData:self.historyInfo->buffer
                          length:self.historyInfo->bufferSize];
+            if (!self.shouldOptimizeForRealtimePlot)
+            {
+                [self redraw];
+            }
             break;
         default:
             break;
     }
     
-    // update drawing
-    if (!self.shouldOptimizeForRealtimePlot)
-    {
-        [self redraw];
-    }
 }
 
 //------------------------------------------------------------------------------
