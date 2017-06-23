@@ -213,6 +213,10 @@ open class AKAudioPlayer2: AKNode, AKToggleable {
     // MARK: - Methods
     
     open func seek(_ time: Double) {
+        if time < 0.0 {
+            print("AKAudioPlayer Warning: cannot seek to negative time value!...")
+            return
+        }
         startTime = time
         endTime = (Double(totalFrameCount) / internalAudioFile.sampleRate) - time
         lastCurrentTime = time
