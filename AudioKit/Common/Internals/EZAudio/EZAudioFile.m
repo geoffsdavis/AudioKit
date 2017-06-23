@@ -519,6 +519,8 @@ typedef struct
                                            toEnd:(float)endFraction
 {
     EZAudioFloatData *waveformData;
+    float maxAmplitude = 0.0;
+
     if (pthread_mutex_trylock(&_lock) == 0)
     {
         UInt32 startFrame = self.totalClientFrames  * startFraction;
@@ -573,6 +575,7 @@ typedef struct
                     for (int frame = 0; frame < framesPerChannel; frame++)
                     {
                         channelData[frame] = buffer[frame * channels + channel];
+                        maxAmplitude = MAX(channelData[frame], maxAmplitude);
                     }
                     float rms = [EZAudioUtilities RMS:channelData length:(UInt32)framesPerChannel];
                     data[channel][i] = rms;
@@ -583,6 +586,8 @@ typedef struct
                 for (int channel = 0; channel < channels; channel++)
                 {
                     float *channelData = audioBufferList->mBuffers[channel].mData;
+                    for(int i = 0; i < bufferSize; i++)
+                        maxAmplitude = MAX(channelData[i], maxAmplitude);
                     float rms = [EZAudioUtilities RMS:channelData length:bufferSize];
                     data[channel][i] = rms;
                 }
@@ -602,6 +607,8 @@ typedef struct
         waveformData = [EZAudioFloatData dataWithNumberOfChannels:channels
                                                           buffers:(float **)data
                                                        bufferSize:numberOfPoints];
+        
+        waveformData.maxAmplitude = maxAmplitude;
         
         // cleanup
         for (int i = 0; i < channels; i++)
