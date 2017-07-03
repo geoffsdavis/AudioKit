@@ -87,7 +87,7 @@
     open static var disableAVAudioSessionCategoryManagement: Bool = false
 
     /// Turn off AudioKit logging
-    open static var enableLogging: Bool = true
+    open static var enableLogging: Bool = false
 }
 
 #if !os(macOS)
