@@ -184,6 +184,14 @@ typedef void (^EZAudioWaveformDataCompletionBlock)(float **waveformData, int len
  */
 
 /**
+ Check whether this file is PAAC
+ @return Boolean on whether it is
+ */
++ (BOOL)isFileTypePAAC:(NSURL *)url;
+
+//----------------------------------------------------------------------------
+
+/**
  A class method that subclasses can override to specify the default client format that will be used to read audio data from this file. A client format is different from the file format in that it is the format of the other components interacting with this file. For instance, the file on disk could be a 22.5 kHz, float format, but we might have an audio processing graph that has a 44.1 kHz, signed integer format that we'd like to interact with. The client format lets us set that 44.1 kHz format on the audio file to properly read samples from it with any interpolation or format conversion that must take place done automatically within the EZAudioFile `readFrames:audioBufferList:bufferSize:eof:` method. Default is stereo, non-interleaved, 44.1 kHz.
  @return An AudioStreamBasicDescription that serves as the audio file's client format.
  */

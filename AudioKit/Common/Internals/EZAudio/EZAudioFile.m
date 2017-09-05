@@ -175,6 +175,23 @@ typedef struct
 #pragma mark - Class Methods
 //------------------------------------------------------------------------------
 
++ (BOOL)isFileTypePAAC:(NSURL *)url {
+    CFURLRef cfUrlRef = (__bridge CFURLRef)(url);
+    ExtAudioFileRef extFileRef;
+    OSStatus status = ExtAudioFileOpenURL(cfUrlRef, &extFileRef);
+    if (status != noErr) return NO;
+    
+    AudioStreamBasicDescription fileFormatASBD;
+    UInt32 propSize = sizeof(fileFormatASBD);
+    status = ExtAudioFileGetProperty(extFileRef,
+                            kExtAudioFileProperty_FileDataFormat,
+                            &propSize,
+                                     &fileFormatASBD);
+    if (status != noErr) return NO;
+    
+    return (fileFormatASBD.mFormatID == 1885430115); // PAAC check
+}
+
 + (AudioStreamBasicDescription)defaultClientFormat
 {
     return [EZAudioUtilities stereoFloatNonInterleavedFormatWithSampleRate:[self defaultClientFormatSampleRate]];
