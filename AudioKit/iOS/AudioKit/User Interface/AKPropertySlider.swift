@@ -19,7 +19,7 @@
     @IBInspectable open var maximum: Double = 1
     @IBInspectable open var property: String = "Property"
     @IBInspectable open var format: String = "%0.3f"
-    @IBInspectable open var bgColor: UIColor = UIColor(colorLiteralRed: 0.9, green: 0.9, blue: 0.9, alpha: 1)
+    @IBInspectable open var bgColor: UIColor = UIColor(red: 0.9, green: 0.9, blue: 0.9, alpha: 1)
     @IBInspectable open var sliderColor: UIColor = .red
     @IBInspectable open var textColor: UIColor = .black
     @IBInspectable open var fontSize: CGFloat = 24
